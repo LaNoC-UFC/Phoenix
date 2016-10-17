@@ -10,12 +10,12 @@ vcom -work work -93 -explicit NoC/HammingPack16.vhd
 # Hamming and fault blocks
 vcom -work work -93 -explicit NoC/Encoder.vhd
 vcom -work work -93 -explicit NoC/Decoder.vhd
+vcom -work work -93 -explicit NoC/FaultInjector.vhd
 
 # FPPM block
 vcom -work work -93 -explicit NoC/FPPM_AA00.vhd
 
 # NoC
-#vcom -work work -93 -explicit NoC/Phoenix_table.vhd
 vcom -work work -93 -explicit NoC/Phoenix_RM.vhd
 vcom -work work -93 -explicit NoC/Phoenix_buffer.vhd
 vcom -work work -93 -explicit NoC/FaultDetection.vhd
