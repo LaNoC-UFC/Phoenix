@@ -122,8 +122,8 @@ begin
 		while not endfile(file_pointer) loop
 
 			-- limpa a string tmp_word
-			for i in 1 to tmp_word'length loop
-				tmp_word(i) := NUL;
+			for j in 1 to tmp_word'length loop
+				tmp_word(j) := NUL;
 			end loop;
 
 			readline(file_pointer,line_num);
@@ -149,8 +149,8 @@ begin
 			end loop;
 			
 			-- limpa a string tmp_word
-			for i in 1 to tmp_word'length loop
-				tmp_word(i) := NUL;
+			for j in 1 to tmp_word'length loop
+				tmp_word(j) := NUL;
 			end loop;
 
 			char_pointer := char_pointer + 1;
