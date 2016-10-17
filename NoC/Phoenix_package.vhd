@@ -93,7 +93,7 @@ package PhoenixPackage is
     subtype regflit is std_logic_vector((TAM_FLIT-1) downto 0);
     subtype regmetadeflit is std_logic_vector(((TAM_FLIT/2)-1) downto 0);
     subtype regquartoflit is std_logic_vector((QUARTOFLIT-1) downto 0);
-    subtype pointer is std_logic_vector((TAM_POINTER-1) downto 0);    
+    subtype pointer is std_logic_vector((TAM_POINTER-1) downto 0);
 
     type buff is array(0 to TAM_BUFFER-1) of regflit;
 
@@ -103,8 +103,7 @@ package PhoenixPackage is
     type arrayNrot_reg3 is array((NROT-1) downto 0) of reg3;
     type arrayNrot_regflit is array((NROT-1) downto 0) of regflit;
     type arrayNrot_regmetadeflit is array((NROT-1) downto 0) of regmetadeflit;
-    
-    type arrayNrot_regNport is array((NROT-1) downto 0) of regNport; -- a -- array (NROT)(NPORT)
+    type arrayNrot_regNport is array((NROT-1) downto 0) of regNport;
 
     function CONV_VECTOR( int: integer ) return std_logic_vector;
 
