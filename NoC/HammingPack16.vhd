@@ -23,6 +23,7 @@ package HammingPack16 is
 	type array_statusHamming is array ((HAMM_NPORT-1) downto 0) of reg3;
 	type arrayNport_regphit is array ((NPORT-1) downto 0) of regphit;
 	type arrayNrot_regphit is array ((NROT-1) downto 0) of regphit;
+    type matrixNrot_Nport_regphit is array((NROT-1) downto 0) of arrayNport_regphit; -- a -- array(NROT)(NPORT)(TAM_FLIT)
 	type arrayNport_reghamm is array((NPORT-1) downto 0) of reghamm;
 	type arrayNrot_reghamm is array((NROT-1) downto 0) of reghamm;
 	type matrixNrot_Nport_reghamm is array((NROT-1) downto 0) of arrayNport_reghamm; -- a -- array(NROT)(NPORT)(TAM_FLIT)

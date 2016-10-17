@@ -64,56 +64,6 @@ package PhoenixPackage is
 ---------------------------------------------------------
     constant TAM_LINHA : integer := 500;
 
-    constant N0000: integer :=0;
-    constant ADDRESSN0000: std_logic_vector(7 downto 0) :="00000000";
-    constant N0100: integer :=1;
-    constant ADDRESSN0100: std_logic_vector(7 downto 0) :="00010000";
-    constant N0200: integer :=2;
-    constant ADDRESSN0200: std_logic_vector(7 downto 0) :="00100000";
-    constant N0300: integer :=3;
-    constant ADDRESSN0300: std_logic_vector(7 downto 0) :="00110000";
-    constant N0400: integer :=4;
-    constant ADDRESSN0400: std_logic_vector(7 downto 0) :="01000000";
-    constant N0001: integer :=5;
-    constant ADDRESSN0001: std_logic_vector(7 downto 0) :="00000001";
-    constant N0101: integer :=6;
-    constant ADDRESSN0101: std_logic_vector(7 downto 0) :="00010001";
-    constant N0201: integer :=7;
-    constant ADDRESSN0201: std_logic_vector(7 downto 0) :="00100001";
-    constant N0301: integer :=8;
-    constant ADDRESSN0301: std_logic_vector(7 downto 0) :="00110001";
-    constant N0401: integer :=9;
-    constant ADDRESSN0401: std_logic_vector(7 downto 0) :="01000001";
-    constant N0002: integer :=10;
-    constant ADDRESSN0002: std_logic_vector(7 downto 0) :="00000010";
-    constant N0102: integer :=11;
-    constant ADDRESSN0102: std_logic_vector(7 downto 0) :="00010010";
-    constant N0202: integer :=12;
-    constant ADDRESSN0202: std_logic_vector(7 downto 0) :="00100010";
-    constant N0302: integer :=13;
-    constant ADDRESSN0302: std_logic_vector(7 downto 0) :="00110010";
-    constant N0402: integer :=14;
-    constant ADDRESSN0402: std_logic_vector(7 downto 0) :="01000010";
-    constant N0003: integer :=15;
-    constant ADDRESSN0003: std_logic_vector(7 downto 0) :="00000011";
-    constant N0103: integer :=16;
-    constant ADDRESSN0103: std_logic_vector(7 downto 0) :="00010011";
-    constant N0203: integer :=17;
-    constant ADDRESSN0203: std_logic_vector(7 downto 0) :="00100011";
-    constant N0303: integer :=18;
-    constant ADDRESSN0303: std_logic_vector(7 downto 0) :="00110011";
-    constant N0403: integer :=19;
-    constant ADDRESSN0403: std_logic_vector(7 downto 0) :="01000011";
-    constant N0004: integer :=20;
-    constant ADDRESSN0004: std_logic_vector(7 downto 0) :="00000100";
-    constant N0104: integer :=21;
-    constant ADDRESSN0104: std_logic_vector(7 downto 0) :="00010100";
-    constant N0204: integer :=22;
-    constant ADDRESSN0204: std_logic_vector(7 downto 0) :="00100100";
-    constant N0304: integer :=23;
-    constant ADDRESSN0304: std_logic_vector(7 downto 0) :="00110100";
-    constant N0404: integer :=24;
-    constant ADDRESSN0404: std_logic_vector(7 downto 0) :="01000100";
 ---------------------------------------------------------
 -- VARIAVEIS DO NOVO HARDWARE
 ---------------------------------------------------------
@@ -143,7 +93,7 @@ package PhoenixPackage is
     subtype regflit is std_logic_vector((TAM_FLIT-1) downto 0);
     subtype regmetadeflit is std_logic_vector(((TAM_FLIT/2)-1) downto 0);
     subtype regquartoflit is std_logic_vector((QUARTOFLIT-1) downto 0);
-    subtype pointer is std_logic_vector((TAM_POINTER-1) downto 0);
+    subtype pointer is std_logic_vector((TAM_POINTER-1) downto 0);    
 
     type buff is array(0 to TAM_BUFFER-1) of regflit;
 
@@ -153,6 +103,8 @@ package PhoenixPackage is
     type arrayNrot_reg3 is array((NROT-1) downto 0) of reg3;
     type arrayNrot_regflit is array((NROT-1) downto 0) of regflit;
     type arrayNrot_regmetadeflit is array((NROT-1) downto 0) of regmetadeflit;
+    
+    type arrayNrot_regNport is array((NROT-1) downto 0) of regNport; -- a -- array (NROT)(NPORT)
 
     function CONV_VECTOR( int: integer ) return std_logic_vector;
 
@@ -309,8 +261,8 @@ package body PhoenixPackage is
         variable address: regflit := (others => '0');
     begin
         address(TAM_FLIT-1 downto METADEFLIT) := (others=>'0');
-        address(METADEFLIT-1 downto QUARTOFLIT) := CONV_STD_LOGIC_VECTOR(number mod (MAX_X+1), QUARTOFLIT);
-        address(QUARTOFLIT-1 downto 0) := CONV_STD_LOGIC_VECTOR(number/(MAX_X+1), QUARTOFLIT);
+        address(METADEFLIT-1 downto QUARTOFLIT) := CONV_STD_LOGIC_VECTOR(number/NUM_X, QUARTOFLIT);
+        address(QUARTOFLIT-1 downto 0) := CONV_STD_LOGIC_VECTOR(number mod NUM_Y, QUARTOFLIT);
         return address;
     end NUMBER_TO_ADDRESS;
     
