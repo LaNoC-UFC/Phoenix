@@ -381,69 +381,32 @@ begin
 		retransmission_in_buf => retransmission_in_buf);
 
 	FPPM: Entity work.FPPM
-	port map(
-		clock => clock,
-		reset_in => reset,
-		rx => rx((HAMM_NPORT-1) downto 0),
-		statusHamming => statusHamming,
-		write_FaultTable => write_FaultTable,
-		row_FaultTablePorts_out => row_FaultTablePorts_out);
+    port map(
+        clock => clock,
+        reset_in => reset,
+        rx => rx((HAMM_NPORT-1) downto 0),
+        statusHamming => statusHamming,
+        write_FaultTable => write_FaultTable,
+        row_FaultTablePorts_out => row_FaultTablePorts_out);
 
-	-- Hamming Encode
-	HammingEncodeEast: Entity work.HAM_ENC
-	port map(
-		data_in => data_out_B(0),
-		data_out => parity_dataOutHamming(0));
-
-	HammingEncodeWest: Entity work.HAM_ENC
-	port map(
-		data_in => data_out_B(1),
-		data_out => parity_dataOutHamming(1));
-
-	HammingEncodeNorth: Entity work.HAM_ENC
-	port map(
-		data_in => data_out_B(2),
-		data_out => parity_dataOutHamming(2));
-
-	HammingEncodeSouth: Entity work.HAM_ENC
-	port map(
-		data_in => data_out_B(3),
-		data_out => parity_dataOutHamming(3));
-
-
-	-- Hamming Decode
-	HammingDecodeEast: Entity work.HAM_DEC
-	port map(
-		data_in => dataInHamming(0),
-		parity_in => parity_dataInHamming(0),
-		data_out => dataDecoded(0),
-		parity_out => parityDecoded(0),
-		credit_out => statusDecoded(0));
-
-	HammingDecodeWest: Entity work.HAM_DEC
-	port map(
-		data_in => dataInHamming(1),
-		parity_in => parity_dataInHamming(1),
-		data_out => dataDecoded(1),
-		parity_out => parityDecoded(1),
-		credit_out => statusDecoded(1));
-
-	HammingDecodeNorth: Entity work.HAM_DEC
-	port map(
-		data_in => dataInHamming(2),
-		parity_in => parity_dataInHamming(2),
-		data_out => dataDecoded(2),
-		parity_out => parityDecoded(2),
-		credit_out => statusDecoded(2));
-
-	HammingDecodeSouth: Entity work.HAM_DEC
-	port map(
-		data_in => dataInHamming(3),
-		parity_in => parity_dataInHamming(3),
-		data_out => dataDecoded(3),
-		parity_out => parityDecoded(3),
-		credit_out => statusDecoded(3));
-
+    HammingEncode : for i in EAST to LOCAL-1 generate
+        HE: entity work.HAM_ENC
+        port map(
+            data_in => data_out_B(i),
+            data_out => parity_dataOutHamming(i)
+        );
+    end generate HammingEncode;
+        
+    HammingDecode : for i in EAST to LOCAL-1 generate
+        HD : entity work.HAM_DEC
+        port map(
+            data_in => dataInHamming(i),
+            parity_in => parity_dataInHamming(i),
+            data_out => dataDecoded(i),
+            parity_out => parityDecoded(i),
+            credit_out => statusDecoded(i)
+        );
+    end generate HammingDecode;    
 
 	CLK_TX : for i in 0 to(NPORT-1) generate
 		clock_tx(i) <= clock;
