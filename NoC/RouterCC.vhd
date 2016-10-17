@@ -115,7 +115,6 @@ signal dataDecoded: arrayNport_regflit; -- dado corrigido
 signal parityDecoded: arrayNport_reghamm; -- paridade corrigida
 signal statusDecoded: arrayNport_reg3; --  status da decodificacao (sem erro, erro corrigido, erro detectado)
 
-signal zeroreg3 : reg3 := (others=>'0');
 signal aux_tx: regNport;
 
 begin
@@ -161,165 +160,77 @@ begin
         credit => credit_i
     );
 
-	FEast : Entity work.Phoenix_buffer
-	generic map(
-		address => address,
-		bufLocation => EAST)
-	port map(
-		clock => clock,
-		reset => reset,
-		data_in => dataDecoded(0),
-		rx => rx(0),
-		h => h(0), -- requisicao de chaveamento
-		c_buffCtrlFalha => c_BuffTabelaFalhas(0), -- tabela de falhas lida do pacote de controle que solicitou escrever/atualizar a tabela
-		c_ceTF_out => c_ceTF(0), -- ce (chip enable) para escrever/atualizar a tabela de falhas
-		c_error_Find => c_erro_ArrayFind(0), -- indica se terminou de achar uma porta de saida para o pacote conforme a tabela de roteamento
-		c_error_dir => c_erro_dir, -- indica qual destino/porta de saida o pacote sera encaminhado
-		c_tabelaFalhas => c_tabela_falhas, -- tabela de falhas atualizada/final
-		c_strLinkTst => c_strLinkTst(0), -- (start link test) indica que houve um pacote de controle do tipo TEST_LINKS para testar os links. 
-		c_stpLinkTst => c_stpLinkTst(0), -- (stop link test) indica o fim do teste do link
-		c_strLinkTstOthers => c_strLinkTstOthers(0), -- indica se algum vizinho pediu para testar o link
-		c_strLinkTstNeighbor => testLink_i(0), -- indica se o vizinho pediu para testar o link
-		c_strLinkTstAll => c_strLinkTstAll, -- se algum buffer fez o pedido de teste de link
-		ack_h => ack_h(0), -- resposta da requisicao de chaveamento
-		data_av => data_av(0),
-		data => data(0),
-		sender => sender(0),
-		clock_rx => clock_rx(0),
-		data_ack => data_ack(0),
-		credit_o => credit_o_A(0),
-		retransmission_in => retransmission_in_buf(0),
-		retransmission_out => retransmission_out(0),
-		statusHamming => statusHamming(0));
+    InputBuffers : for i in EAST to (LOCAL-1) generate
+        IB : entity work.Phoenix_buffer
+        generic map(
+            address => address,
+            bufLocation => i
+        )
+        port map(
+            clock => clock,
+            reset => reset,
+            data_in => dataDecoded(i),
+            rx => rx(i),
+            h => h(i), -- requisicao de chaveamento
+            c_buffCtrlFalha => c_BuffTabelaFalhas(i), -- tabela de falhas lida do pacote de controle que solicitou escrever/atualizar a tabela
+            c_ceTF_out => c_ceTF(i), -- ce (chip enable) para escrever/atualizar a tabela de falhas
+            c_error_Find => c_erro_ArrayFind(i), -- indica se terminou de achar uma porta de saida para o pacote conforme a tabela de roteamento
+            c_error_dir => c_erro_dir, -- indica qual destino/porta de saida o pacote sera encaminhado
+            c_tabelaFalhas => c_tabela_falhas, -- tabela de falhas atualizada/final
+            c_strLinkTst => c_strLinkTst(i), -- (start link test) indica que houve um pacote de controle do tipo TEST_LINKS para testar os links.q
+            c_stpLinkTst => c_stpLinkTst(i), -- (stop link test) indica o fim do teste do link
+            c_strLinkTstOthers => c_strLinkTstOthers(i), -- indica se algum vizinho pediu para testar o link
+            c_strLinkTstNeighbor => testLink_i(i), -- indica se o vizinho pediu para testar o link
+            c_strLinkTstAll => c_strLinkTstAll, -- se algum buffer fez o pedido de teste de link
+            ack_h => ack_h(i), -- resposta da requisicao de chaveamento
+            data_av => data_av(i),
+            data => data(i),
+            sender => sender(i),
+            clock_rx => clock_rx(i),
+            data_ack => data_ack(i),
+            credit_o => credit_o_A(i),
+            retransmission_in => retransmission_in_buf(i),
+            retransmission_out => retransmission_out(i),
+            statusHamming => statusHamming(i)
+        );
+    end generate InputBuffers;
 
-	
-	FWest : Entity work.Phoenix_buffer
-	generic map(
-		address => address,
-		bufLocation => WEST)
-	port map(
-		clock => clock,
-		reset => reset,
-		data_in => dataDecoded(1),
-		rx => rx(1),
-		h => h(1),
-		c_buffCtrlFalha => c_BuffTabelaFalhas(1),
-		c_ceTF_out => c_ceTF(1),
-		c_error_Find => c_erro_ArrayFind(1),
-		c_error_dir => c_erro_dir,
-		c_tabelaFalhas => c_tabela_falhas,
-		c_strLinkTst => c_strLinkTst(1),
-		c_stpLinkTst => c_stpLinkTst(1),
-		c_strLinkTstOthers => c_strLinkTstOthers(1),
-		c_strLinkTstNeighbor => testLink_i(1),
-		c_strLinkTstAll => c_strLinkTstAll,
-		ack_h => ack_h(1),
-		data_av => data_av(1),
-		data => data(1),
-		sender => sender(1),
-		clock_rx => clock_rx(1),
-		data_ack => data_ack(1),
-		credit_o => credit_o_A(1),
-		retransmission_in => retransmission_in_buf(1),
-		retransmission_out => retransmission_out(1),
-		statusHamming => statusHamming(1));
-
-	FNorth : Entity work.Phoenix_buffer
-	generic map(
-		address => address,
-		bufLocation => NORTH)
-	port map(
-		clock => clock,
-		reset => reset,
-		data_in => dataDecoded(2),
-		rx => rx(2),
-		h => h(2),
-		c_buffCtrlFalha => c_BuffTabelaFalhas(2),
-		c_ceTF_out => c_ceTF(2),
-		c_error_Find => c_erro_ArrayFind(2),
-		c_error_dir => c_erro_dir,
-		c_tabelaFalhas => c_tabela_falhas,
-		c_strLinkTst => c_strLinkTst(2),
-		c_stpLinkTst => c_stpLinkTst(2),
-		c_strLinkTstOthers => c_strLinkTstOthers(2),
-		c_strLinkTstNeighbor => testLink_i(2),
-		c_strLinkTstAll => c_strLinkTstAll,
-		ack_h => ack_h(2),
-		data_av => data_av(2),
-		data => data(2),
-		sender => sender(2),
-		clock_rx => clock_rx(2),
-		data_ack => data_ack(2),
-		credit_o => credit_o_A(2),
-		retransmission_in => retransmission_in_buf(2),
-		retransmission_out => retransmission_out(2),
-		statusHamming => statusHamming(2));
-
-	FSouth : Entity work.Phoenix_buffer
-	generic map(
-		address => address,
-		bufLocation => SOUTH)
-	port map(
-		clock => clock,
-		reset => reset,
-		data_in => dataDecoded(3),
-		rx => rx(3),
-		h => h(3),
-		c_buffCtrlFalha => c_BuffTabelaFalhas(3),
-		c_ceTF_out => c_ceTF(3),
-		c_error_Find => c_erro_ArrayFind(3),
-		c_error_dir => c_erro_dir,
-		c_tabelaFalhas => c_tabela_falhas,
-		c_strLinkTst => c_strLinkTst(3),
-		c_stpLinkTst => c_stpLinkTst(3),
-		c_strLinkTstOthers => c_strLinkTstOthers(3),
-		c_strLinkTstNeighbor => testLink_i(3),
-		c_strLinkTstAll => c_strLinkTstAll,
-		ack_h => ack_h(3),
-		data_av => data_av(3),
-		data => data(3),
-		sender => sender(3),
-		clock_rx => clock_rx(3),
-		data_ack => data_ack(3),
-		credit_o => credit_o_A(3),
-		retransmission_in => retransmission_in_buf(3),
-		retransmission_out => retransmission_out(3),
-		statusHamming => statusHamming(3));
-
-	FLocal : Entity work.Phoenix_buffer
-	generic map(
-		address => address,
-		bufLocation => LOCAL)
-	port map(
-		clock => clock,
-		reset => reset,
-		data_in => dataDecoded(4),
-		rx => rx(4),
-		h => h(4),
-		c_ctrl=> c_ctrl, -- (exclusivo do buffer local) indica se foi lido ou criado de um pacote de controle pelo buffer
-		c_buffCtrlOut=> c_BuffCtrl, -- (exclusivo do buffer local) linha da tabela de roteamento lida do pacote de controle que sera escrita na tabela de roteamento
-		c_codigoCtrl=> c_CodControle, -- (exclusivo do buffer local) codigo de controle do pacote de controle (terceiro flit do pacote de controle)
-		c_chipETable => c_ceTR, -- (exclusivo do buffer local) chip enable da tabela de roteamento
-		c_buffCtrlFalha => c_BuffTabelaFalhas(4),
-		c_ceTF_out => c_ceTF(4),
-		c_error_Find => c_erro_ArrayFind(4),
-		c_error_dir => c_erro_dir,
-		c_tabelaFalhas => c_tabela_falhas,
-		c_strLinkTst => c_strLinkTst(4),
-		c_stpLinkTst => c_stpLinkTst(4),
-		c_strLinkTstOthers => c_strLinkTstOthers(4),
-		c_strLinkTstNeighbor => testLink_i(4),
-		c_strLinkTstAll => c_strLinkTstAll,
-		ack_h => ack_h(4),
-		data_av => data_av(4),
-		data => data(4),
-		sender => sender(4),
-		clock_rx => clock_rx(4),
-		data_ack => data_ack(4),
-		credit_o => credit_o_A(4),
-		retransmission_in => retransmission_in_buf(4),
-		retransmission_out => retransmission_out(4),
-		statusHamming => zeroreg3);
+    LocalBuffer : Entity work.Phoenix_buffer
+    generic map(
+        address => address,
+        bufLocation => LOCAL
+    )
+    port map(
+        clock => clock,
+        reset => reset,
+        data_in => dataDecoded(LOCAL),
+        rx => rx(LOCAL),
+        h => h(LOCAL),
+        c_ctrl=> c_ctrl, -- (exclusivo do buffer local) indica se foi lido ou criado de um pacote de controle pelo buffer
+        c_buffCtrlOut=> c_BuffCtrl, -- (exclusivo do buffer local) linha da tabela de roteamento lida do pacote de controle que sera escrita na tabela de roteamento
+        c_codigoCtrl=> c_CodControle, -- (exclusivo do buffer local) codigo de controle do pacote de controle (terceiro flit do pacote de controle)
+        c_chipETable => c_ceTR, -- (exclusivo do buffer local) chip enable da tabela de roteamento
+        c_buffCtrlFalha => c_BuffTabelaFalhas(LOCAL),
+        c_ceTF_out => c_ceTF(LOCAL),
+        c_error_Find => c_erro_ArrayFind(LOCAL),
+        c_error_dir => c_erro_dir,
+        c_tabelaFalhas => c_tabela_falhas,
+        c_strLinkTst => c_strLinkTst(LOCAL),
+        c_stpLinkTst => c_stpLinkTst(LOCAL),
+        c_strLinkTstOthers => c_strLinkTstOthers(LOCAL),
+        c_strLinkTstNeighbor => testLink_i(LOCAL),
+        c_strLinkTstAll => c_strLinkTstAll,
+        ack_h => ack_h(LOCAL),
+        data_av => data_av(LOCAL),
+        data => data(LOCAL),
+        sender => sender(LOCAL),
+        clock_rx => clock_rx(LOCAL),
+        data_ack => data_ack(LOCAL),
+        credit_o => credit_o_A(LOCAL),
+        retransmission_in => retransmission_in_buf(LOCAL),
+        retransmission_out => retransmission_out(LOCAL),
+        statusHamming => (others=>'0')
+    );
 
 	FaultDetection: Entity work.FaultDetection
 	port map(
