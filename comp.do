@@ -25,6 +25,7 @@ vcom -work work -93 -explicit NoC/RouterCC.vhd
 vcom -work work -93 -explicit NoC/NOC.vhd
 
 # TestBench
+vcom -work work -93 -explicit outputModule.vhd
 vcom -work work -93 -explicit topNoC.vhd
 
 #quit -f
