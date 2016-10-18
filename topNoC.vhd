@@ -220,92 +220,17 @@ begin
 	wait;
 	end process;
 end generate;
-	
-		
-write_file: for i in 0 to (NROT-1) generate
-begin
-	process(clock(i))
-		variable cont : integer := 0;
-		variable remaining_flits : std_logic_vector(TAM_FLIT-1 downto 0) := (others=>'0');
-		file my_output : TEXT open WRITE_MODE is "Out/out"&to_hstring(NUMBER_TO_ADDRESS(i))&".txt";
-		variable my_output_line : LINE;
-		variable timeSourceCore: std_logic_vector ((TAM_FLIT*4)-1 downto 0) := (others=>'0');
-		variable timeSourceNet: std_logic_vector ((TAM_FLIT*4)-1 downto 0) := (others=>'0');
-		variable timeTarget: std_logic_vector ((TAM_FLIT*4)-1 downto 0) := (others=>'0');
-		variable aux_latency: std_logic_vector ((TAM_FLIT*4)-1 downto 0) := (others=>'0'); --latência desde o tempo de criação do pacote (em decimal)
-		variable control_pkt: std_logic;
-	begin
-		if(clock(i)'event and clock(i)='0' and tx(i)='1')then
-
--- DADOS DE CONTROLE:
-
-			if (cont = 0) then -- destino
-				write(my_output_line, string'(to_hstring(data_out(i))));
-				write(my_output_line, string'(" "));
-				cont := 1;
-				control_pkt := data_out(i)((TAM_FLIT-1));
-				
-			elsif (cont = 1) then -- tamanho
-				write(my_output_line, string'(to_hstring(data_out(i))));
-				write(my_output_line, string'(" "));
-				remaining_flits := data_out(i);
-				cont := 2;
-
--- DADOS DO PAYLOAD:
-
-			elsif (remaining_flits > 1) then
-				remaining_flits := remaining_flits - 1; -- vai sair quando remaining_flits for 0
-				
-				if (cont >= 3 and cont <= 6 and control_pkt='0') then -- captura timestamp
-					timeSourceCore((TAM_FLIT*(7-cont)-1) downto (TAM_FLIT*(6-cont))) := data_out(i);
-				end if;
-				
-				if (cont >= 9 and cont <= 12 and control_pkt='0') then -- captura timestamp
-					timeSourceNet((TAM_FLIT*(13-cont)-1) downto (TAM_FLIT*(12-cont))) := data_out(i);
-				end if;
-
-			    write(my_output_line, string'(to_hstring(data_out(i))));
-				write(my_output_line, string'(" "));
-				
-				cont := cont + 1;
-
-			-- ultimo flit do pacote	
-			else
-			  write(my_output_line, string'(to_hstring(data_out(i))));
-			  --writeline(my_output, my_output_line);
-			  cont := 0;
-			  
-				if (control_pkt='0') then
-					timeTarget := currentTime;
-					for j in (TAM_FLIT/4) downto 1 loop
-						write(my_output_line, string'(" "));
-						write(my_output_line, string'(to_hstring(timeTarget( TAM_FLIT*j-1 downto TAM_FLIT*(j-1) ))));
-					end loop;
-				  
-					write(my_output_line, string'(" "));
-					write(my_output_line, string'(integer'image(CONV_INTEGER(timeSourceCore((TAM_FLIT*2)-1 downto 0)))));
-				  
-					write(my_output_line, string'(" "));
-					write(my_output_line, string'(integer'image(CONV_INTEGER(timeSourceNet((TAM_FLIT*2)-1 downto 0)))));
-				  
-					write(my_output_line, string'(" "));
-					write(my_output_line, string'(integer'image(CONV_INTEGER(timeTarget((TAM_FLIT*2)-1 downto 0)))));
-				  
-					write(my_output_line, string'(" "));
-					aux_latency := (timeTarget-timeSourceCore);
-					write(my_output_line, string'(integer'image(CONV_INTEGER(aux_latency((TAM_FLIT*2)-1 downto 0)))));
-				  
-					write(my_output_line, string'(" "));
-					write(my_output_line, string'("0"));
-				  
-					writeline(my_output, my_output_line);
-				end if;
-			end if;
-		end if; --end if clock(i)'event...
 
 
+    OutputModules: for i in 0 to (NROT-1) generate
+        OM : Entity work.outputModule
+        generic map(address => NUMBER_TO_ADDRESS(i))
+        port map(
+            clock => clock(i),
+            tx => tx(i),
+            data => data_out(i),
+            currentTime => currentTime
+        );
+    end generate OutputModules;
 
-	end process;
-end generate write_file;
-	
 end topNoC;
