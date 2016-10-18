@@ -39,7 +39,7 @@ architecture behavior of routingMechanism is
 	signal rowInf, colInf, rowSup, colSup : row;
 	signal H : std_logic_vector((NREG-1) downto 0);
 	-------------New Hardware---------------
-	signal VertInf, VertSup : STD_LOGIC_VECTOR(7 downto 0);
+	signal VertInf, VertSup : regAddr;
 	signal func : STD_LOGIC_VECTOR(7 downto 0);
 	signal OP : STD_LOGIC_VECTOR(4 downto 0);
 	type arrayIP is array ((NREG-1) downto 0) of std_logic_vector(4 downto 0);
