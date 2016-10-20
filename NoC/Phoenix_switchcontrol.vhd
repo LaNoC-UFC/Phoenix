@@ -33,7 +33,7 @@ end SwitchControl;
 
 architecture RoutingTable of SwitchControl is
 
-	type state is (S0,S1,S2,S3,S4,S5,S6,S7);
+	type state is (S0,S1,S2,S3,S4,S5,S7);
 	signal ES, PES: state;
 
 -- sinais do arbitro
@@ -276,10 +276,10 @@ begin
 					    		PES<=S5;
 	  				 	elsif (dir(NORTH)='1' and  auxfree(NORTH)='1' ) then
 							indice_dir <= NORTH; 
-					    		PES<=S6;
+					    		PES<=S5;
 					  	elsif (dir(SOUTH)='1' and  auxfree(SOUTH)='1' ) then
 							indice_dir <= SOUTH; 
-					   		PES<=S6;
+					   		PES<=S5;
 			  		  	else PES<=S1;
 					end if;
 					elsif(find = portError)then
@@ -289,7 +289,6 @@ begin
 					end if;
 			when S4 => PES<=S7;
 			when S5 => PES<=S7;
-			when S6 => PES<=S7;
 			when S7 => PES<=S1;
 		end case;
 	end process;
@@ -337,13 +336,6 @@ begin
 
 				-- Estabelece a conexao com a porta EAST ou WEST
 				when S5 =>
-					source(CONV_INTEGER(incoming)) <= CONV_VECTOR(indice_dir);
-					mux_out(indice_dir) <= incoming;
-					auxfree(indice_dir) <= '0';
-					ack_h(sel)<='1';
-
-				-- Estabelece a conexao com a porta NORTH ou SOUTH
-				when S6 =>
 					source(CONV_INTEGER(incoming)) <= CONV_VECTOR(indice_dir);
 					mux_out(indice_dir) <= incoming;
 					auxfree(indice_dir) <= '0';
