@@ -1,6 +1,7 @@
 library IEEE;
 use IEEE.std_logic_1164.all;
 use IEEE.std_logic_unsigned.all;
+use ieee.numeric_std.all;
 use STD.textio.all;
 use work.PhoenixPackage.all;
 
@@ -17,6 +18,9 @@ port(
 end;
 
 architecture inputModule of inputModule is
+
+    constant TIME_STAMP_SIZE: integer := 4;
+    constant HEADER_SIZE: integer := 2;
 
     function string_to_int(
         x_str : string;
@@ -136,22 +140,26 @@ begin
 
             current_flit_index := 0;
             is_control_package := '0';
+            package_size := (others=>'0');
 
-            -- leitura da linha e injetado os flits lidos
-            while (current_package(char_pointer) /= NUL) loop
+            while ((current_flit_index < package_size + HEADER_SIZE)) loop
 
                 if (enable = '1') then
                     if (current_flit_index >= 9 and current_flit_index <= 12 and is_control_package = '0') then
                         current_flit := actual_input_time(((13-current_flit_index)*TAM_FLIT-1) downto ((12-current_flit_index)*TAM_FLIT));
                     else
-                        next_regflit(current_package, char_pointer, current_flit);
+                        if (current_package(char_pointer) /= NUL) then
+                            next_regflit(current_package, char_pointer, current_flit);
+                        else
+                            current_flit := std_logic_vector(to_unsigned(current_flit_index, current_flit'length));
+                        end if;
                     end if;
 
                     if (current_flit_index = 0) then
                         is_control_package := current_flit(TAM_FLIT-1);
                         actual_input_time := currentTime;
                     elsif (current_flit_index = 1 and is_control_package = '0') then
-                        current_flit := current_flit + 4; -- reservar +4 espacos para o timestamp de entrada na rede
+                        current_flit := current_flit + TIME_STAMP_SIZE;
                         package_size := current_flit;
                     end if;
 
