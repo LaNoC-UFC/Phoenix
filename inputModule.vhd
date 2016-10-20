@@ -171,7 +171,7 @@ begin
                     data <= (others=>'0');
                 end if;
 
-                wait for 20 ns; -- clock period
+                wait for CLOCK_PERIOD;
             end loop;
 
             done <= '0';

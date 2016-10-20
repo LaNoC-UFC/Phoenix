@@ -27,6 +27,8 @@ package PhoenixPackage is
 ---------------------------------------------------------
 -- CONSTANTS INDEPENDENTES
 ---------------------------------------------------------
+    constant CLOCK_PERIOD : time := 20 ns;
+
     constant NPORT: integer := 5;
 
     constant EAST  : integer := 0;
