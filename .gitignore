@@ -2,3 +2,6 @@
 *.mti
 *.mpf
 work/*
+*transcript
+modelsim.ini
+
