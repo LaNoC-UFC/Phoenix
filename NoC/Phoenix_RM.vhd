@@ -8,7 +8,7 @@ use work.PhoenixPackage.all;
 use work.TablePackage.all;
 
 entity routingMechanism is
-	generic(address : regmetadeflit := (others=>'0'));
+	generic(address : regflit := (others=>'0'));
 	port(
 			clock :   in  std_logic;
 			reset :   in  std_logic;
@@ -17,7 +17,7 @@ entity routingMechanism is
 			operacao: in regflit; -- codigo de controle do pacote de controle (terceiro flit do pacote de controle)
 			ceT: in std_logic; -- chip enable da tabela de roteamento. Indica que sera escrito na tabela de roteamento
 			oe :   in  std_logic;
-			dest : in reg8;
+			dest : in regflit;
 			inputPort : in integer range 0 to (NPORT-1); -- porta de entrada selecionada pelo arbitro para ser chaveada
 			outputPort : out regNPort; -- indica qual porta de saida o pacote sera encaminhado
 			find : out RouterControl
@@ -47,27 +47,24 @@ architecture behavior of routingMechanism is
 	signal IP_lido: STD_LOGIC_VECTOR(4 downto 0);
 	signal i : integer := 0;
 
-	signal RAM: memory := TAB(ADDRESS_TO_NUMBER_NOIA(address));
+    signal RAM: memory := TAB(INDEX_FROM_ADDRESS(address));
 	
 begin
 
-	rowDst <= TO_INTEGER(unsigned(dest(7 downto 4))) when ctrl = '0' else 0;
-	colDst <= TO_INTEGER(unsigned(dest(3 downto 0))) when ctrl = '0' else 0;
+    rowDst <= TO_INTEGER(unsigned(dest(TAM_FLIT-1 downto METADEFLIT))) when ctrl = '0' else 0;
+    colDst <= TO_INTEGER(unsigned(dest(METADEFLIT-1 downto 0))) when ctrl = '0' else 0;
 
 	cond: for j in 0 to (NREG - 1) generate
-
-		rowInf(j) <= TO_INTEGER(unsigned(RAM(j)(20 downto 17))) when ctrl = '0' else 0;
-		colInf(j) <= TO_INTEGER(unsigned(RAM(j)(16 downto 13))) when ctrl = '0' else 0;
-		rowSup(j) <= TO_INTEGER(unsigned(RAM(j)(12 downto 9))) when ctrl = '0' else 0;
-		colSup(j) <= TO_INTEGER(unsigned(RAM(j)(8 downto 5))) when ctrl = '0' else 0;
-
-		IP(j) <= RAM(j)(25 downto 21) when ctrl = '0' else (others=>'0');
+        IP(j) <= RAM(j)(CELL_SIZE-1 downto CELL_SIZE-5) when ctrl = '0' else (others=>'0');
+        rowInf(j) <= TO_INTEGER(unsigned(RAM(j)(CELL_SIZE-6 downto CELL_SIZE-5-NBITS))) when ctrl = '0' else 0;
+        colInf(j) <= TO_INTEGER(unsigned(RAM(j)(CELL_SIZE-6-NBITS downto CELL_SIZE-5-2*NBITS))) when ctrl = '0' else 0;
+        rowSup(j) <= TO_INTEGER(unsigned(RAM(j)(CELL_SIZE-6-2*NBITS downto CELL_SIZE-5-3*NBITS))) when ctrl = '0' else 0;
+        colSup(j) <= TO_INTEGER(unsigned(RAM(j)(CELL_SIZE-6-3*NBITS downto 5))) when ctrl = '0' else 0;
 
 		H(j) <= '1' when rowDst >= rowInf(j) and rowDst <= rowSup(j) and
 			       	   colDst >= colInf(j) and colDst <= colSup(j) and 
 			       	   IP(j)(inputPort) = '1' and ctrl = '0' else 
 		      '0';
-
 	end generate;
 
 	process(RAM, H, ce, ctrl)

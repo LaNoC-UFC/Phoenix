@@ -5,7 +5,7 @@ use work.PhoenixPackage.all;
 use work.HammingPack16.all;
 
 entity SwitchControl is
-    generic(address : regmetadeflit := (others=>'0'));
+    generic(address : regflit := (others=>'0'));
 port(
     clock :   in  std_logic;
     reset :   in  std_logic;
@@ -44,7 +44,6 @@ architecture RoutingTable of SwitchControl is
 
 -- sinais do controle
     signal indice_dir: integer range 0 to (NPORT-1) := 0;
-    signal tx,ty: regquartoflit := (others=> '0');
     signal auxfree: regNport := (others=> '0');
     signal source:  arrayNport_reg3 := (others=> (others=> '0'));
     signal sender_ant: regNport := (others=> '0');
@@ -110,9 +109,6 @@ begin
         end case;
     end process;
 
-    tx <= header((METADEFLIT - 1) downto QUARTOFLIT); -- coordenada X do destino
-    ty <= header((QUARTOFLIT - 1) downto 0); -- coordernada Y do destino
-    
     ------------------------------------------------------------
     --gravacao da tabela de falhas
     ------------------------------------------------------------
@@ -219,7 +215,7 @@ begin
             operacao => c_CodControle, -- codigo de controle do pacote de controle (terceiro flit do pacote de controle)
             ceT => c_ce, -- chip enable da tabela de roteamento. Indica que sera escrito na tabela de roteamento
             oe => ceTable, -- usado para solicitar direcao/porta destino para a tabela de roteamento
-            dest => header((METADEFLIT - 1) downto 0), -- primeiro flit/header do pacote (contem o destino do pacote)
+            dest => header, -- primeiro flit/header do pacote (contem o destino do pacote)
             inputPort => sel, -- porta de entrada selecionada pelo arbitro para ser chaveada
             outputPort => dir, -- indica qual porta de saida o pacote sera encaminhado
             find => find -- indica se terminou de achar uma porta de saida para o pacote conforme a tabela de roteamento
@@ -255,7 +251,7 @@ begin
                 end if;
             when S2 => PES <= S3;
             when S3 => 
-                if address = header((METADEFLIT - 1) downto 0) and auxfree(LOCAL)='1' then 
+                if address = header and auxfree(LOCAL)='1' then 
                     indice_dir <= LOCAL; 
                     PES <= S4;
                 elsif(find = validRegion)then
@@ -304,7 +300,7 @@ begin
 
                 -- Aguarda resposta da Tabela                    
                 when S3 =>
-                    if address /= header((METADEFLIT - 1) downto 0) then
+                    if address /= header then
                         ceTable <= '1';
                     end if;
 

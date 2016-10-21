@@ -51,7 +51,7 @@ begin
 
     InputModules: for i in 0 to (NROT-1) generate
         IM : Entity work.inputModule
-        generic map(address => NUMBER_TO_ADDRESS(i))
+        generic map(address => ADDRESS_FROM_INDEX(i))
         port map(
             done => rx(i),
             data => data_in(i),
@@ -62,7 +62,7 @@ begin
 
     OutputModules: for i in 0 to (NROT-1) generate
         OM : Entity work.outputModule
-        generic map(address => NUMBER_TO_ADDRESS(i))
+        generic map(address => ADDRESS_FROM_INDEX(i))
         port map(
             clock => clock(i),
             tx => tx(i),

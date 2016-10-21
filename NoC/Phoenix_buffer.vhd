@@ -36,7 +36,7 @@ use STD.textio.all;
 
 -- interface da Phoenix_buffer
 entity Phoenix_buffer is
-	generic(address : regmetadeflit := (others=>'0');
+	generic(address : regflit := (others=>'0');
 		bufLocation: integer := 0);
 port(
 	clock:      in  std_logic;
@@ -329,14 +329,14 @@ begin
 
 						-- se o primeiro flit do pacote a ser transmitido possui o bit indicando que eh um pacote de controle E se nesse primeiro flit possui o endereco do roteador em que o buffer se encontra
 						-- OU se devo criar um pacote de controle com a tabela de falhas (este pacote eh criado se for pedido a leitura da tabela de falhas)
-						if((buf(CONV_INTEGER(first))(TAM_FLIT-1)='1') and (buf(CONV_INTEGER(first))((METADEFLIT - 1) downto 0)=address)) or c_createmessage = '1' then -- PACOTE DE CONTROLE
+						if((buf(CONV_INTEGER(first))(TAM_FLIT-1)='1') and (buf(CONV_INTEGER(first))((TAM_FLIT-2) downto 0)=address((TAM_FLIT-2) downto 0))) or c_createmessage = '1' then -- PACOTE DE CONTROLE
 							
 							-- se preciso criar um pacote com a tabela de falhas. Comentario antigo: o pacote de controle pare este roteador
 							if c_createmessage = '1' then
 
 								-- se ultimo pacote de controle recebido foi de leitura da tabela de falhas
 								if codigoControl = c_RD_FAULT_TAB_STEP1 then
-									c_Buffer <=  x"80" & address((METADEFLIT-1) downto 0); -- entao crio o primeiro flit do pacote que vai conter a tabela de falhas
+									c_Buffer <=  '1' & address((TAM_FLIT-2) downto 0); -- entao crio o primeiro flit do pacote que vai conter a tabela de falhas
 									h <= '1';         -- requisicao de chaveamento (chavear os dados de entrada para a porta de saida atraves da crossbar)
 									EA <= S_HEADER;   -- maquina de estados avanca para o estado S_HEADER
 									eh_controle <= '1'; -- indica que o pacote lido/criado eh de controle
@@ -631,7 +631,7 @@ begin
 								if (data_ack = '1') then
 		
 									case (indexFlitCtrl) is
-										when 1 => c_Buffer <= x"00" & address; -- neste quarto flit havera o endereco do roteador
+										when 1 => c_Buffer <= address; -- neste quarto flit havera o endereco do roteador
 
 										when 2 => c_Buffer((TAM_FLIT-1) downto METADEFLIT) <= CONV_STD_LOGIC_VECTOR(0,METADEFLIT-2) & c_TabelaFalhas(EAST)((3*COUNTERS_SIZE+1) downto 3*COUNTERS_SIZE);
 											  c_Buffer((METADEFLIT-1) downto 0) <= CONV_STD_LOGIC_VECTOR(0,METADEFLIT-COUNTERS_SIZE) & c_TabelaFalhas(EAST)((3*COUNTERS_SIZE-1) downto 2*COUNTERS_SIZE);

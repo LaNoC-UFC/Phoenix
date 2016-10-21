@@ -49,7 +49,7 @@ use ieee.numeric_std.all;
 USE ieee.math_real.ALL;   -- for UNIFORM, TRUNC functions
 
 entity RouterCC is
-generic( address: regmetadeflit);
+generic( address: regflit);
 port(
 	clock:            in  std_logic;
 	reset:            in  std_logic;
