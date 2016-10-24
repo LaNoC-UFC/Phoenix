@@ -53,6 +53,7 @@ begin
 
     process
         file file_pointer: text;
+        variable fstatus: file_open_status;
         variable line_num : line; -- linha lida
         variable tmp_word: string (1 to 50);
         variable tmp_line: line;
@@ -71,110 +72,113 @@ begin
         variable seed1, seed2: positive;               -- Seed values for random generator
         variable rand: real;                           -- Random real-number value in range 0 to 1.0
     begin
-        file_open(file_pointer,"fault_"&to_hstring(address)&".txt",READ_MODE);
-        while not endfile(file_pointer) loop
+        file_open(fstatus, file_pointer,"fault_"&to_hstring(address)&".txt",READ_MODE);
+        
+        if(fstatus = OPEN_OK) then
+            while not endfile(file_pointer) loop
 
-            -- limpa a string tmp_word
-            for i in 1 to tmp_word'length loop
-                tmp_word(i) := NUL;
-            end loop;
+                -- limpa a string tmp_word
+                for i in 1 to tmp_word'length loop
+                    tmp_word(i) := NUL;
+                end loop;
 
-            readline(file_pointer,line_num);
-            line_counter := line_counter + 1;
-            char_pointer := line_num'low;
-            -- copia a string da linha lida ate encontrar espaco (ira copiar o tempo do inicio da falha)
-            while (line_num(char_pointer) /= ' ' and char_pointer <= line_num'high) loop
-                tmp_word(char_pointer) := line_num(char_pointer);
+                readline(file_pointer,line_num);
+                line_counter := line_counter + 1;
+                char_pointer := line_num'low;
+                -- copia a string da linha lida ate encontrar espaco (ira copiar o tempo do inicio da falha)
+                while (line_num(char_pointer) /= ' ' and char_pointer <= line_num'high) loop
+                    tmp_word(char_pointer) := line_num(char_pointer);
+                    char_pointer := char_pointer + 1;
+                end loop;
+
+                -- converte string lida (taxa de falhas) para real
+                write(tmp_line,tmp_word);
+                read(tmp_line,fault_rate);
+
+                -- limpa a string tmp_word
+                for i in 1 to tmp_word'length loop
+                    tmp_word(i) := NUL;
+                end loop;
+
                 char_pointer := char_pointer + 1;
-            end loop;
+                char_pointer_tmp := 1;
+                -- copia a string da linha lida ate encontrar espaco ou fim (ira copiar a porta de saida)
+                while (line_num(char_pointer) /= ' ' and line_num(char_pointer) /= NUL and char_pointer < line_num'high) loop
+                    tmp_word(char_pointer_tmp) := line_num(char_pointer);
+                    char_pointer := char_pointer + 1;
+                    char_pointer_tmp := char_pointer_tmp + 1;
+                end loop;
 
-            -- converte string lida (taxa de falhas) para real
-            write(tmp_line,tmp_word);
-            read(tmp_line,fault_rate);
-
-            -- limpa a string tmp_word
-            for i in 1 to tmp_word'length loop
-                tmp_word(i) := NUL;
-            end loop;
-
-            char_pointer := char_pointer + 1;
-            char_pointer_tmp := 1;
-            -- copia a string da linha lida ate encontrar espaco ou fim (ira copiar a porta de saida)
-            while (line_num(char_pointer) /= ' ' and line_num(char_pointer) /= NUL and char_pointer < line_num'high) loop
+                -- copiar o ultimo character
                 tmp_word(char_pointer_tmp) := line_num(char_pointer);
-                char_pointer := char_pointer + 1;
-                char_pointer_tmp := char_pointer_tmp + 1;
-            end loop;
 
-            -- copiar o ultimo character
-            tmp_word(char_pointer_tmp) := line_num(char_pointer);
+                if (tmp_word(1 to 4) = "EAST") then
+                    fault_port := EAST;
+                elsif (tmp_word(1 to 4) = "WEST") then
+                    fault_port := WEST;
+                elsif (tmp_word(1 to 5) = "NORTH") then
+                    fault_port := NORTH;
+                elsif (tmp_word(1 to 5) = "SOUTH") then
+                    fault_port := SOUTH;
+                elsif (tmp_word(1 to 5) = "LOCAL") then
+                    fault_port := LOCAL;
+                else
+                    assert false report "Erro de leitura da porta de saida: linha "&integer'image(line_counter)&" do arquivo fault_00"&to_hstring(address)&".txt" severity error;
+                    wait;
+                end if;
 
-            if (tmp_word(1 to 4) = "EAST") then
-                fault_port := EAST;
-            elsif (tmp_word(1 to 4) = "WEST") then
-                fault_port := WEST;
-            elsif (tmp_word(1 to 5) = "NORTH") then
-                fault_port := NORTH;
-            elsif (tmp_word(1 to 5) = "SOUTH") then
-                fault_port := SOUTH;
-            elsif (tmp_word(1 to 5) = "LOCAL") then
-                fault_port := LOCAL;
-            else
-                assert false report "Erro de leitura da porta de saida: linha "&integer'image(line_counter)&" do arquivo fault_00"&to_hstring(address)&".txt" severity error;
-                wait;
-            end if;
+                --assert false report "Porta de saida: "&integer'image(fault_port) severity note;
+                -- limpa a string fault_type_string
+                for i in 1 to tmp_word'length loop
+                    tmp_word(i) := NUL;
+                end loop;
 
-            --assert false report "Porta de saida: "&integer'image(fault_port) severity note;
-            -- limpa a string fault_type_string
-            for i in 1 to tmp_word'length loop
-                tmp_word(i) := NUL;
-            end loop;
+                fault_rate_Nports(fault_port) := fault_rate;
 
-            fault_rate_Nports(fault_port) := fault_rate;
+                Deallocate(tmp_line);
 
-            Deallocate(tmp_line);
+            end loop; -- fim da leitura do arquivo
 
-        end loop; -- fim da leitura do arquivo
+            wait until reset='0';
+            wait until clock='1';
+            wait for 1 ns;
 
-        wait until reset='0';
-        wait until clock='1';
-        wait for 1 ns;
+            --for i in 0 to NPORT-1 loop
+                --assert false report "Router 00"&to_hstring(address)&" => Fault rate in port "&PORT_NAME(i)&": "&real'image(fault_rate_Nports(i)) severity note;
+            --end loop;
 
-        --for i in 0 to NPORT-1 loop
-            --assert false report "Router 00"&to_hstring(address)&" => Fault rate in port "&PORT_NAME(i)&": "&real'image(fault_rate_Nports(i)) severity note;
-        --end loop;
+            fault_injected := (others=>'0');
+            uniform(seed1, seed2, rand); -- generate random number
 
-        fault_injected := (others=>'0');
-        uniform(seed1, seed2, rand); -- generate random number
+            while true loop
 
-        while true loop
+                for i in 0 to NPORT-1 loop
+                    if (tx(i)='1' and credit(i)='1' and restransmit(i)='0') then
+                        fault_counter_Nports(i) := fault_counter_Nports(i) + fault_rate_Nports(i);
+                        if (fault_counter_Nports(i) >= rand and fault_injected(i) = '0') then
+                            FaultNPorts(i)(BF)(0) <= '1';
+                            FaultNPorts(i)(BF)(1) <= '1';
+                            fault_injected(i) := '1';
+                        else
+                            FaultNPorts(i)(BF)(0) <= '0';
+                            FaultNPorts(i)(BF)(1) <= '0';
+                        end if;
 
-            for i in 0 to NPORT-1 loop
-                if (tx(i)='1' and credit(i)='1' and restransmit(i)='0') then
-                    fault_counter_Nports(i) := fault_counter_Nports(i) + fault_rate_Nports(i);
-                    if (fault_counter_Nports(i) >= rand and fault_injected(i) = '0') then
-                        FaultNPorts(i)(BF)(0) <= '1';
-                        FaultNPorts(i)(BF)(1) <= '1';
-                        fault_injected(i) := '1';
+                        if (fault_counter_Nports(i) >= 1.0) then
+                            fault_counter_Nports(i) := fault_counter_Nports(i) - 1.0;
+                            fault_injected(i) := '0';
+                            uniform(seed1, seed2, rand); -- generate random number
+                        end if;
                     else
                         FaultNPorts(i)(BF)(0) <= '0';
                         FaultNPorts(i)(BF)(1) <= '0';
                     end if;
+                end loop;
 
-                    if (fault_counter_Nports(i) >= 1.0) then
-                        fault_counter_Nports(i) := fault_counter_Nports(i) - 1.0;
-                        fault_injected(i) := '0';
-                        uniform(seed1, seed2, rand); -- generate random number
-                    end if;
-                else
-                    FaultNPorts(i)(BF)(0) <= '0';
-                    FaultNPorts(i)(BF)(1) <= '0';
-                end if;
+                wait for 20 ns; -- clock period
             end loop;
-
-            wait for 20 ns; -- clock period
-        end loop;
-    wait;
+        end if;
+        wait;
     end process;
 
 end FaultInjector;
