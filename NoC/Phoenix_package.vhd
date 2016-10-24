@@ -119,12 +119,10 @@ package PhoenixPackage is
     function CONV_STRING_8BITS( dado : std_logic_vector(7 downto 0)) return string;
     function CONV_STRING_16BITS( dado : std_logic_vector(15 downto 0)) return string;
     function CONV_STRING_32BITS( dado : std_logic_vector(31 downto 0)) return string;
-    function NUMBER_TO_ADDRESS(number: integer) return regflit;
-    function ADDRESS_TO_NUMBER (address: std_logic_vector) return integer;
-    function ADDRESS_TO_NUMBER_NOIA (address: std_logic_vector) return integer;
+    function INDEX_FROM_ADDRESS (address: std_logic_vector) return integer;
     function to_hstring(value: std_logic_vector) return string;
     function PORT_NAME(value: integer) return string;
-    function GET_ADDR(index : integer) return regflit;
+    function ADDRESS_FROM_INDEX(index : integer) return regflit;
     function OR_REDUCTION(arrayN : std_logic_vector ) return boolean;
 
 end PhoenixPackage;
@@ -134,7 +132,7 @@ package body PhoenixPackage is
     --
     -- dado o index do roteador retorna o endereço correspondente
     --
-    function GET_ADDR( index: integer) return regflit is
+    function ADDRESS_FROM_INDEX( index: integer) return regflit is
         variable addrX, addrY: regmetadeflit;
         variable addr: regflit;
     begin
@@ -142,7 +140,7 @@ package body PhoenixPackage is
         addrY := CONV_STD_LOGIC_VECTOR(index mod NUM_Y, METADEFLIT); 
         addr := addrX & addrY;
         return addr;
-    end GET_ADDR;
+    end ADDRESS_FROM_INDEX;
     --
     -- converte um inteiro em um std_logic_vector(2 downto 0)
     --
@@ -256,36 +254,16 @@ package body PhoenixPackage is
         return str;
     end CONV_STRING_32BITS;
     
-    function NUMBER_TO_ADDRESS( number: integer ) return regflit is
-        variable address: regflit := (others => '0');
-    begin
-        address(TAM_FLIT-1 downto METADEFLIT) := (others=>'0');
-        address(METADEFLIT-1 downto QUARTOFLIT) := CONV_STD_LOGIC_VECTOR(number/NUM_X, QUARTOFLIT);
-        address(QUARTOFLIT-1 downto 0) := CONV_STD_LOGIC_VECTOR(number mod NUM_Y, QUARTOFLIT);
-        return address;
-    end NUMBER_TO_ADDRESS;
-    
-    function ADDRESS_TO_NUMBER (address: std_logic_vector) return integer is
+    function INDEX_FROM_ADDRESS (address: std_logic_vector) return integer is
         variable number: integer := 0;
-        alias addrX is address(METADEFLIT-1 downto QUARTOFLIT);
-        alias addrY is address(QUARTOFLIT-1 downto 0);
+        alias addrX is address(TAM_FLIT-1 downto METADEFLIT);
+        alias addrY is address(METADEFLIT-1 downto 0);
         variable X : integer := CONV_INTEGER(addrX);
         variable Y : integer := CONV_INTEGER(addrY);
     begin
-        number := Y*(MAX_X+1) + X;
+        number := X*NUM_X + Y;
         return number;
-    end ADDRESS_TO_NUMBER;
-    
-    function ADDRESS_TO_NUMBER_NOIA (address: std_logic_vector) return integer is
-        variable number: integer := 0;
-        alias addrX is address(METADEFLIT-1 downto QUARTOFLIT);
-        alias addrY is address(QUARTOFLIT-1 downto 0);
-        variable X : integer := CONV_INTEGER(addrX);
-        variable Y : integer := CONV_INTEGER(addrY);
-    begin
-        number := X*(MAX_Y+1) + Y;
-        return number;
-    end ADDRESS_TO_NUMBER_NOIA;
+    end INDEX_FROM_ADDRESS;
     
   -- converte hexa para string
     function to_hstring (value     : STD_LOGIC_VECTOR) return STRING is

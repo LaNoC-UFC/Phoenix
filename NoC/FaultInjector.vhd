@@ -10,7 +10,7 @@ USE ieee.math_real.ALL;
 
 entity FaultInjector is
 generic(
-    address: regmetadeflit
+    address: regflit
 );
 port(
     clock:          in std_logic;
@@ -71,7 +71,7 @@ begin
         variable seed1, seed2: positive;               -- Seed values for random generator
         variable rand: real;                           -- Random real-number value in range 0 to 1.0
     begin
-        file_open(file_pointer,"fault_00"&to_hstring(address)&".txt",READ_MODE);
+        file_open(file_pointer,"fault_"&to_hstring(address)&".txt",READ_MODE);
         while not endfile(file_pointer) loop
 
             -- limpa a string tmp_word

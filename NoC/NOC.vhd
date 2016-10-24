@@ -36,7 +36,7 @@ begin
 
     Router: for i in 0 to (NROT-1) generate
         n : Entity work.RouterCC
-        generic map( address => NUMBER_TO_ADDRESS(i)((METADEFLIT-1) downto 0))
+        generic map( address => ADDRESS_FROM_INDEX(i))
         port map(
             clock                   => clock(i),
             reset                   => reset,
