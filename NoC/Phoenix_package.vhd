@@ -137,7 +137,7 @@ package body PhoenixPackage is
         variable addr: regflit;
     begin
         addrX := CONV_STD_LOGIC_VECTOR(index/NUM_X,METADEFLIT);
-        addrY := CONV_STD_LOGIC_VECTOR(index mod NUM_Y, METADEFLIT); 
+        addrY := CONV_STD_LOGIC_VECTOR(index mod NUM_Y, METADEFLIT);
         addr := addrX & addrY;
         return addr;
     end ADDRESS_FROM_INDEX;
@@ -253,7 +253,7 @@ package body PhoenixPackage is
         str := str1 & str2;
         return str;
     end CONV_STRING_32BITS;
-    
+
     function INDEX_FROM_ADDRESS (address: std_logic_vector) return integer is
         variable number: integer := 0;
         alias addrX is address(TAM_FLIT-1 downto METADEFLIT);
@@ -264,7 +264,7 @@ package body PhoenixPackage is
         number := X*NUM_X + Y;
         return number;
     end INDEX_FROM_ADDRESS;
-    
+
   -- converte hexa para string
     function to_hstring (value     : STD_LOGIC_VECTOR) return STRING is
         constant ne     : INTEGER := (value'length+3)/4;                    -- numero minimo de blocos de 4 bits (truncado)
@@ -309,7 +309,7 @@ package body PhoenixPackage is
             return result;
         end if;
     end function to_hstring;
-    
+
     function PORT_NAME(value: integer) return string is
         variable str: string (1 to 8);
     begin
