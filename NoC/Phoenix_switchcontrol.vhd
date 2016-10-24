@@ -33,7 +33,7 @@ end SwitchControl;
 
 architecture RoutingTable of SwitchControl is
 
-    type state is (S0,S1,S2,S3,S4,S5,S6);
+    type state is (S0,S1,S2,S3,S4,S5);
     signal ES, PES: state;
 
 -- sinais do arbitro
@@ -66,7 +66,7 @@ architecture RoutingTable of SwitchControl is
     signal ant_c_ceTF_in: regNPort:= (others=>'0');
     
     signal selectedOutput : integer := 0;
-     signal isOutputSelected : std_logic;
+    signal isOutputSelected : std_logic;
     
 begin
     ask <= '1' when OR_REDUCTION(h) else '0';
@@ -243,33 +243,37 @@ begin
         end if;
     end process;
 
-	process(ES, ask, auxfree, find, selectedOutput, isOutputSelected)
+    process(ES, ask, auxfree, find, selectedOutput, isOutputSelected)
     begin
         case ES is
             when S0 => PES <= S1;
-            when S1 => if ask='1' then PES <= S2; else PES <= S1; end if;
+            when S1 => 
+                if ask='1' then 
+                    PES <= S2; 
+                else 
+                    PES <= S1; 
+                end if;
             when S2 => PES <= S3;
             when S3 => 
                 if address = header((METADEFLIT - 1) downto 0) and auxfree(LOCAL)='1' then 
-                   PES<=S4;
+                    indice_dir <= LOCAL; 
+                    PES <= S4;
                 elsif(find = validRegion)then
                     if (isOutputSelected = '1') then 
                         indice_dir <= selectedOutput;
-                        PES <= S5;
+                        PES <= S4;
                     else
                         PES <= S1;
                     end if;
                 elsif(find = portError)then
                     PES <= S1;
                 else
-                PES<=S3;
+                    PES <= S3;
                 end if;
-            when S4 => PES<=S6;
-            when S5 => PES<=S6;
-            when S6 => PES<=S1;
+            when S4 => PES <= S5;
+            when S5 => PES <= S1;
         end case;
     end process;
-
 
     ------------------------------------------------------------------------------------------------------
     -- executa as acoes correspondente ao estado atual da maquina de estados
@@ -304,43 +308,30 @@ begin
                         ceTable <= '1';
                     end if;
 
-                -- Estabelece a conexao com a porta LOCAL
                 when S4 =>
-                    source(CONV_INTEGER(incoming)) <= CONV_VECTOR(LOCAL); -- sinal para a crossbar
-                    mux_out(LOCAL) <= incoming; -- sinal para crossbar
-                    auxfree(LOCAL) <= '0'; -- conexao estabelecida, logo porta ocupado
-                    ack_h(sel)<='1'; -- responde que houve chaveamento com sucesso
-
-                when S5 =>
                     source(CONV_INTEGER(incoming)) <= CONV_VECTOR(indice_dir);
                     mux_out(indice_dir) <= incoming;
                     auxfree(indice_dir) <= '0';
-                    ack_h(sel)<='1';
+                    ack_h(sel) <= '1';
 
                 when others => 
-                    ack_h(sel)<='0';
+                    ack_h(sel) <= '0';
                     ceTable <= '0';
             end case;
 
-            sender_ant(LOCAL) <= sender(LOCAL);
-            sender_ant(EAST)  <= sender(EAST);
-            sender_ant(WEST)  <= sender(WEST);
-            sender_ant(NORTH) <= sender(NORTH);
-            sender_ant(SOUTH) <= sender(SOUTH);
+            sender_ant <= sender;
 
-            -- se uma porta estava transmitindo dados e agora nao esta mais, entao a porta ficou livre
-            if sender(LOCAL)='0' and  sender_ant(LOCAL)='1' then auxfree(CONV_INTEGER(source(LOCAL))) <='1'; end if;
-            if sender(EAST) ='0' and  sender_ant(EAST)='1'  then auxfree(CONV_INTEGER(source(EAST)))  <='1'; end if;
-            if sender(WEST) ='0' and  sender_ant(WEST)='1'  then auxfree(CONV_INTEGER(source(WEST)))  <='1'; end if;
-            if sender(NORTH)='0' and  sender_ant(NORTH)='1' then auxfree(CONV_INTEGER(source(NORTH))) <='1'; end if;
-            if sender(SOUTH)='0' and  sender_ant(SOUTH)='1' then auxfree(CONV_INTEGER(source(SOUTH))) <='1'; end if;
-
+            for i in EAST to LOCAL loop
+                if sender(i) = '0' and  sender_ant(i) = '1' then 
+                    auxfree(CONV_INTEGER(source(i))) <= '1'; 
+                else
+                    auxfree(CONV_INTEGER(source(i))) <= '0';
+                end if;
+            end loop;
         end if;
     end process;
 
-
     mux_in <= source;
     free <= auxfree;
-
 
 end RoutingTable;
