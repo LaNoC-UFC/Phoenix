@@ -52,7 +52,7 @@ architecture RoutingTable of SwitchControl is
 -- sinais de controle da tabela
     signal find: RouterControl;
     signal ceTable: std_logic := '0';
-    
+
 -- sinais de controle de atualizacao da tabela de falhas
     signal c_ceTF : std_logic := '0';
     signal c_buffTabelaFalhas : row_FaultTable_Ports := (others=>(others=>'0'));
@@ -63,10 +63,10 @@ architecture RoutingTable of SwitchControl is
     signal dirBuff : std_logic_vector(NPORT-1 downto 0):= (others=> '0');
     signal strLinkTstAll : std_logic := '0';
     signal ant_c_ceTF_in: regNPort:= (others=>'0');
-    
+
     signal selectedOutput : integer := 0;
     signal isOutputSelected : std_logic;
-    
+
 begin
     ask <= '1' when OR_REDUCTION(h) else '0';
     incoming <= CONV_VECTOR(sel);
@@ -143,12 +143,12 @@ begin
                 end loop;
 
             end if;
-        end if; 
+        end if;
     end process;
-    
+
     -- '1' se em algum buffer houve o pedido de teste de link (por causa do pacote de controle do tipo TEST_LINKS)
     strLinkTstAll <= '1' when OR_REDUCTION(c_strLinkTst) else '0';
-    
+
 
     -- "merge" das telas recebidas
     process(c_ceTF_in)
@@ -168,7 +168,7 @@ begin
                 if (achou(j)='0' and c_ceTF_in(i)='1' and c_buffTabelaFalhas_in(i)(j)((3*COUNTERS_SIZE+1) downto 3*COUNTERS_SIZE) = "10") then
                     c_buffTabelaFalhas(j) <= c_buffTabelaFalhas_in(i)(j);
                     achou(j) := '1';
-                end if;        
+                end if;
             end loop;
         end loop;
 
@@ -178,7 +178,7 @@ begin
                 if (achou(j)='0' and c_ceTF_in(i)='1' and c_buffTabelaFalhas_in(i)(j)((3*COUNTERS_SIZE+1) downto 3*COUNTERS_SIZE) = "01") then
                     c_buffTabelaFalhas(j) <= c_buffTabelaFalhas_in(i)(j);
                     achou(j) := '1';
-                end if;        
+                end if;
             end loop;
         end loop;
 
@@ -188,14 +188,14 @@ begin
                 if (achou(j)='0' and c_ceTF_in(i)='1' and c_buffTabelaFalhas_in(i)(j)((3*COUNTERS_SIZE+1) downto 3*COUNTERS_SIZE) = "00") then
                     c_buffTabelaFalhas(j) <= c_buffTabelaFalhas_in(i)(j);
                     achou(j) := '1';
-                end if;        
+                end if;
             end loop;
         end loop;
     end process;
 
     -- '1' se em algum buffer tiver habilita o ce para escrever/atualizar a tabela de falhas
     c_ceTF <= '1' when OR_REDUCTION(c_ceTF_in) else '0';
-    
+
     process(clock,reset)
     begin
         c_error_ArrayFind <= (others=>invalidRegion);
@@ -220,7 +220,7 @@ begin
             outputPort => dir, -- indica qual porta de saida o pacote sera encaminhado
             find => find -- indica se terminou de achar uma porta de saida para o pacote conforme a tabela de roteamento
         );
-        
+
     OutputArbiter : entity work.outputArbiter
     port map(
          freePort                => auxfree,
@@ -228,8 +228,8 @@ begin
          enablePort              => dir,
          isOutputSelected        => isOutputSelected,
          selectedOutput          => selectedOutput
-     ); 
-            
+     );
+
     process(reset,clock)
     begin
         if reset='1' then
@@ -243,19 +243,19 @@ begin
     begin
         case ES is
             when S0 => PES <= S1;
-            when S1 => 
-                if ask='1' then 
-                    PES <= S2; 
-                else 
-                    PES <= S1; 
+            when S1 =>
+                if ask='1' then
+                    PES <= S2;
+                else
+                    PES <= S1;
                 end if;
             when S2 => PES <= S3;
-            when S3 => 
-                if address = header and auxfree(LOCAL)='1' then 
-                    indice_dir <= LOCAL; 
+            when S3 =>
+                if address = header and auxfree(LOCAL)='1' then
+                    indice_dir <= LOCAL;
                     PES <= S4;
                 elsif(find = validRegion)then
-                    if (isOutputSelected = '1') then 
+                    if (isOutputSelected = '1') then
                         indice_dir <= selectedOutput;
                         PES <= S4;
                     else
@@ -298,7 +298,7 @@ begin
                 when S2=>
                     sel <= prox;
 
-                -- Aguarda resposta da Tabela                    
+                -- Aguarda resposta da Tabela
                 when S3 =>
                     if address /= header then
                         ceTable <= '1';
@@ -310,7 +310,7 @@ begin
                     auxfree(indice_dir) <= '0';
                     ack_h(sel) <= '1';
 
-                when others => 
+                when others =>
                     ack_h(sel) <= '0';
                     ceTable <= '0';
             end case;
@@ -318,8 +318,8 @@ begin
             sender_ant <= sender;
 
             for i in EAST to LOCAL loop
-                if sender(i) = '0' and  sender_ant(i) = '1' then 
-                    auxfree(CONV_INTEGER(source(i))) <= '1'; 
+                if sender(i) = '0' and  sender_ant(i) = '1' then
+                    auxfree(CONV_INTEGER(source(i))) <= '1';
                 else
                     auxfree(CONV_INTEGER(source(i))) <= '0';
                 end if;

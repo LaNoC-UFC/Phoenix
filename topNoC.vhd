@@ -18,7 +18,7 @@ architecture topNoC of topNoC is
     signal clock_tx, tx, credit_i, testLink_i, testLink_o: regNrot;
     signal data_in, data_out : arrayNrot_regflit;
     signal currentTime: std_logic_vector(4*TAM_FLIT-1 downto 0) := (others=>'0');
-  
+
 begin
     reset <= '1', '0' after CLOCK_PERIOD/2;
     clock <= not clock after CLOCK_PERIOD/2;

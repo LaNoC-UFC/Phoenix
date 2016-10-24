@@ -3,7 +3,7 @@ use IEEE.STD_LOGIC_1164.all;
 use IEEE.STD_LOGIC_unsigned.all;
 use work.PhoenixPackage.all;
 
-entity outputArbiter is    
+entity outputArbiter is
 port(
     freePort : in regNport;
     enable : in std_logic;
@@ -15,7 +15,7 @@ end;
 
 architecture outputArbiter of outputArbiter is
 begin
-    
+
     process(freePort, enablePort, enable)
         variable auxDone : std_logic;
         variable auxSelected : integer;
@@ -30,9 +30,9 @@ begin
                     exit;
                 end if;
             end loop;
-        end if; 
+        end if;
         isOutputSelected <= auxDone;
-        selectedOutput <= auxSelected;              
+        selectedOutput <= auxSelected;
     end process;
 
 end outputArbiter;
