@@ -125,6 +125,7 @@ package PhoenixPackage is
     function to_hstring(value: std_logic_vector) return string;
     function PORT_NAME(value: integer) return string;
     function GET_ADDR(index : integer) return regflit;
+	function OR_REDUCTION(arrayN : std_logic_vector ) return boolean;
 
 end PhoenixPackage;
 
@@ -344,4 +345,11 @@ package body PhoenixPackage is
         end case;
         return str;
     end function PORT_NAME;
+	--
+    -- Do a OR operation between all elements in an array
+    --
+    function OR_REDUCTION( arrayN: in std_logic_vector ) return boolean is
+    begin
+        return arrayN /= 0;
+    end OR_REDUCTION;
 end PhoenixPackage;

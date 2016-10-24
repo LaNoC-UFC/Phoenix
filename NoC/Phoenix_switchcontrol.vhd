@@ -69,7 +69,7 @@ architecture RoutingTable of SwitchControl is
      signal isOutputSelected : std_logic;
     
 begin
-    ask <= '1' when (h(LOCAL)='1' or h(EAST)='1' or h(WEST)='1' or h(NORTH)='1' or h(SOUTH)='1') else '0';
+    ask <= '1' when OR_REDUCTION(h) else '0';
     incoming <= CONV_VECTOR(sel);
     header <= data(CONV_INTEGER(incoming));
 
@@ -151,7 +151,7 @@ begin
     end process;
     
     -- '1' se em algum buffer houve o pedido de teste de link (por causa do pacote de controle do tipo TEST_LINKS)
-    strLinkTstAll <= c_strLinkTst(0) or c_strLinkTst(1) or c_strLinkTst(2) or c_strLinkTst(3) or c_strLinkTst(4);
+    strLinkTstAll <= '1' when OR_REDUCTION(c_strLinkTst) else '0';
     
 
     -- "merge" das telas recebidas
@@ -198,12 +198,7 @@ begin
     end process;
 
     -- '1' se em algum buffer tiver habilita o ce para escrever/atualizar a tabela de falhas
-    c_ceTF <= ( c_ceTF_in(EAST)  OR
-            c_ceTF_in(WEST)  OR
-            c_ceTF_in(SOUTH) OR
-            c_ceTF_in(NORTH) OR
-            c_ceTF_in(LOCAL));
-    ------------------------------------------------------------
+    c_ceTF <= '1' when OR_REDUCTION(c_ceTF_in) else '0';
     
     process(clock,reset)
     begin
