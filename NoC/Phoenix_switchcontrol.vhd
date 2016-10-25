@@ -320,8 +320,6 @@ begin
             for i in EAST to LOCAL loop
                 if sender(i) = '0' and  sender_ant(i) = '1' then
                     auxfree(CONV_INTEGER(source(i))) <= '1';
-                else
-                    auxfree(CONV_INTEGER(source(i))) <= '0';
                 end if;
             end loop;
         end if;
