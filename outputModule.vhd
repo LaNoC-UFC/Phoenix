@@ -53,27 +53,20 @@ begin
                         actual_input_time((TAM_FLIT*(13-current_flit_index)-1) downto (TAM_FLIT*(12-current_flit_index))) := data;
                     end if;
 
-                    write(current_line, string'(to_hstring(data)) & " ");
+                    if (current_flit_index = 2 or current_flit_index = 7 or current_flit_index = 8) then
+                        write(current_line, string'(to_hstring(data)) & " ");
+                    end if;
                 -- tail
                 else
-                    write(current_line, string'(to_hstring(data)));
-                    current_flit_index := -1;
-
                     if (is_control_package = '0') then
                         tail_arrival_time := currentTime;
-                        for j in (TAM_FLIT/4) downto 1 loop
-                            write(current_line, string'(" "));
-                            write(current_line, " " & string'(to_hstring(tail_arrival_time(TAM_FLIT*j-1 downto TAM_FLIT*(j-1)))));
-                        end loop;
-                        write(current_line,  " " & string'(integer'image(to_integer(signed(desired_input_time)))));
                         write(current_line, " " & string'(integer'image(to_integer(signed(actual_input_time)))));
-                        write(current_line, " " & string'(integer'image(to_integer(signed(tail_arrival_time)))));
                         package_latency := to_integer(signed(tail_arrival_time-desired_input_time));
                         write(current_line, " " & string'(integer'image(package_latency)));
-                        write(current_line, string'(" 0"));
 
                         writeline(file_pointer, current_line);
                     end if;
+                    current_flit_index := -1;
                 end if;
                 current_flit_index := current_flit_index + 1;
             end if;
