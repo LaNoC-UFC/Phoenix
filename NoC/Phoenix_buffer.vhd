@@ -93,7 +93,6 @@ signal c_Buffer : regflit := (others=>'0'); -- dado de saida gerado ao criar um 
 signal c_strLinkTstLocal : std_logic := '0'; -- sinal do pedido de inicio de teste de links
 signal old_tabelaFalhas : regNport :=(others=>'0'); -- antiga tabela e falhas com 1 bit para cada porta. '0' indica sem falha, '1' indica com falha
 
-signal discard: std_logic := '0'; -- sinal que indica para voltar a maquina de estados (usada para envio do pacote) para votlar a o estado inicial, pois o pacote sera descartado
 signal last_retransmission: regflit := (others=>'0');
 signal counter_flit_up: regflit := (others=>'0');
 signal last_count_rx: regflit := (others=>'0');
@@ -142,7 +141,6 @@ begin
    -- incrementado. Quando last atingir o tamanho da fila, ele recebe zero.
    process(reset, clock_rx)
       variable count: integer;
-      variable ignore: std_logic := '0';
       variable pkt_received: std_logic := '0';
 
       file my_output : TEXT open WRITE_MODE is "retransmission_00"&to_hstring(address)&".txt";
@@ -153,17 +151,13 @@ begin
       if reset = '1' then
          last <= (others=>'0');
          count := 0;
-         ignore := '0';
-         discard <= '0';
          last_count_rx <= (others=>'0');
          pkt_size <= (others=>'0');
          pkt_received := '1';
 
       elsif clock_rx'event and clock_rx = '0' then
-         if (rx = '0' and (pkt_received='1' or ignore='1')) then
+         if (rx = '0' and pkt_received='1') then
             count := 0;
-            ignore := '0';
-            discard <= '0';
             last_count_rx <= (others=>'1');
             pkt_received := '0';
             pkt_size <= (others=>'0');
@@ -175,84 +169,37 @@ begin
          -- se meu roteador esta testando os links ou se o link ligado a este buffer esta sendo testando pelo vizinho, irei ignorar os flits durante o teste
          -- o buffer local que eh conectado ao link local (assumido que nunca falha) nunca sera testado
          if tem_espaco = '1' and rx = '1' and ((c_strLinkTstAll = '0' and c_strLinkTstNeighbor='0') or bufLocation = LOCAL) then
+                -- se nao deu erro, esta tudo normal. Posso armazenar o flit no buffer e incrementar o ponteiro
+                if (statusHamming /= ED) then
+                    retransmission_o <= '0';
+                    -- modifica o ultimo flit do pacote para armazenar o numero de retransmissoes
+                    if (count = pkt_size+1 and pkt_size > 0) then
+                        total_count_retx := data_in;
+                        total_count_retx := total_count_retx + count_retx;
+                        buf(CONV_INTEGER(last)) <= total_count_retx;
+                    else
+                        buf(CONV_INTEGER(last)) <= data_in; -- armazena o flit
+                    end if;
 
-            -- "ignore" eh um auxiliar usado para indicar que estou ignorando os flits que estao chegando, pois
-            -- o pacote foi descartado. O descarte eh feito ao descartar os flits que ja chegaram (voltando o ponteiro de maneira que possa sobreescrever os flits ja recebidos) e
-            -- ignorando os flits subsequentes.
-            if (ignore = '0') then
+                    if (count = 1) then
+                        pkt_size <= data_in;
+                    end if;
 
-               -- se nao deu erro, esta tudo normal. Posso armazenar o flit no buffer e incrementar o ponteiro
-               if (statusHamming /= ED) then
-                  retransmission_o <= '0';
-                  -- modifica o ultimo flit do pacote para armazenar o numero de retransmissoes
-                  if (count = pkt_size+1 and pkt_size > 0) then
-                     total_count_retx := data_in;
-                     total_count_retx := total_count_retx + count_retx;
-                     buf(CONV_INTEGER(last)) <= total_count_retx;
-                  else
-                     buf(CONV_INTEGER(last)) <= data_in; -- armazena o flit
-                  end if;
+                    --incrementa o last
+                    if last = TAM_BUFFER - 1 then
+                        last <= (others=>'0');
+                    else
+                        last <= last + 1;
+                    end if;
 
-                  if (count = 1) then
-                     pkt_size <= data_in;
-                  end if;
-
-                  --incrementa o last
-                  if last = TAM_BUFFER - 1 then
-                    last <= (others=>'0');
-                  else
-                    last <= last + 1;
-                  end if;
-
-                  count := count + 1;
+                    count := count + 1;
 
                -- detectado erro e nao corrigido. Posso tentar mais uma vez pedindo retransmissao...
-               else
-                  count_retx := count_retx + 1;
-                  last_count_rx <= CONV_STD_LOGIC_VECTOR(count,TAM_FLIT);
-
-                  -- desiste se deu erro duas vezes no mesmo flit
-                  if (last_count_rx = count and count /= 1) then
-                     retransmission_o <= '0';
-                     buf(CONV_INTEGER(last)) <= data_in; -- armazena o flit (mesmo com falha)
-                     --incrementa o last
-                     if last = TAM_BUFFER - 1 then
-                       last <= (others=>'0');
-                     else
-                       last <= last + 1;
-                     end if;
-
-                     count := count + 1;
-                  else
-                     retransmission_o <= '1';
-                  end if;
-               end if;
-
-               -- se estou no segundo flit recebido e, mesmo depois de pedir retransmissao dele, veio com falha
-               if (count = 1 and statusHamming = ED and last_count_rx = 1) then
-
-                  ignore := '1';
-                  retransmission_o <= '0';
-
-                  -- volta uma posicao o ponteiro last e sinaliza com discard em '1' para reiniciar a maquina de estados que
-                  -- ja estava iniciando o envio do pacote
-                  if (last = 0) then
-                     last <= CONV_STD_LOGIC_VECTOR(TAM_BUFFER-1, TAM_POINTER);
-                     if (first = TAM_BUFFER - 1) then
-                        discard <= '1';
-                     else
-                        discard <= '0';
-                     end if;
-                  else
-                     last <= last - 1;
-                     if (first = last-1) then
-                        discard <= '1';
-                     else
-                        discard <= '0';
-                     end if;
-                  end if;
-
-               end if; -- end if do if (count = 1...
+                else
+                    retransmission_o <= '1';
+                    count_retx := count_retx + 1;
+                    last_count_rx <= CONV_STD_LOGIC_VECTOR(count,TAM_FLIT);
+                end if;
 
                if (count = pkt_size+2 and pkt_size > 0) then
                   pkt_received := '1';
@@ -264,11 +211,6 @@ begin
                else
                   pkt_received := '0';
                end if;
-
-            -- deixar so um ciclo o discard em '1'
-            else
-               discard <= '0';
-            end if;
          end if;
       end if;
    end process;
@@ -375,11 +317,6 @@ begin
                -- se terminou de achar uma porta de saida para o pacote conforme a tabela de roteamento
                if (c_error_find = validRegion) then
                   c_direcao <= c_error_dir; -- direcao/porta de saida da tabela de roteamento
-               end if;
-
-               if (discard = '1') then
-                  h <= '0';
-                  EA <= S_INIT;
                end if;
 
                -- atendido/confirmado a requisicao de chaveamento OU se link destino tiver falhar
