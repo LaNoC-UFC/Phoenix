@@ -13,7 +13,6 @@ architecture fault_injector_test of fault_injector_test is
     signal clock:          std_logic := '0';
     signal reset:          std_logic;
     signal tx:             regNport := (others=>'0');
-    signal restransmit:    regNPort := (others=>'0');
     signal data_in:        arrayNport_regphit := (others=>(others=>'0'));
     signal data_out:       arrayNport_regphit;
     signal credit:         regNport := (others=>'0');
@@ -28,7 +27,6 @@ begin
         clock => clock,
         reset => reset,
         tx => tx,
-        restransmit => restransmit,
         data_in => data_in,
         data_out => data_out,
         credit => credit
@@ -48,27 +46,6 @@ begin
         tx(EAST) <= '1';
         credit(EAST) <= '1';
         wait until reset = '0';
-        -- Without asking for retransmission
-        for i in 1 to NUMBER_ITERACTIONS loop
-            wait until clock'event and clock = '1';
-            if data_in(EAST) /= data_out(EAST) then
-                fault_count := fault_count + 1;
-            end if;
-        end loop;
-        report "Percentage of fault = " & real'image((real(fault_count)*100.0)/real(NUMBER_ITERACTIONS)) & "%.";
-        -- Asking for retransmission in an alternate way
-        fault_count := 0;
-        for i in 1 to NUMBER_ITERACTIONS loop
-            restransmit(EAST) <= not restransmit(EAST);
-            wait until clock'event and clock = '1';
-            if data_in(EAST) /= data_out(EAST) then
-                fault_count := fault_count + 1;
-            end if;
-        end loop;
-        report "Percentage of fault = " & real'image((real(fault_count)*100.0)/real(NUMBER_ITERACTIONS)) & "%.";
-        -- Asking for retransmission always
-        fault_count := 0;
-        restransmit(EAST) <= '1';
         for i in 1 to NUMBER_ITERACTIONS loop
             wait until clock'event and clock = '1';
             if data_in(EAST) /= data_out(EAST) then

@@ -154,7 +154,6 @@ begin
         clock => clock,
         reset => reset,
         tx => aux_tx,
-        restransmit => retransmission_i,
         data_in => dataOutHamming,
         data_out => data_out,
         credit => credit_i

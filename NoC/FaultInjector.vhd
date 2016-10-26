@@ -16,7 +16,6 @@ port(
     clock:          in std_logic;
     reset:          in std_logic;
     tx:             in regNport;
-    restransmit:    in regNPort;
     data_in:        in arrayNport_regphit;
     data_out:       out arrayNport_regphit;
     credit:         in regNport
@@ -54,7 +53,7 @@ begin
     process
         file file_pointer: text;
         variable fstatus: file_open_status;
-        variable line_num : line; -- linha lida
+        variable line_num : line;
         variable tmp_word: string (1 to 50);
         variable tmp_line: line;
         variable line_counter: integer := 0;
@@ -69,8 +68,8 @@ begin
         variable fault_rate_Nports: real_array := (others=>0.0);
         variable fault_injected: regNPort;
 
-        variable seed1, seed2: positive;               -- Seed values for random generator
-        variable rand: real;                           -- Random real-number value in range 0 to 1.0
+        variable seed1, seed2: positive;
+        variable rand: real;
     begin
         file_open(fstatus, file_pointer,"fault_"&to_hstring(address)&".txt",READ_MODE);
         
@@ -127,7 +126,6 @@ begin
                     wait;
                 end if;
 
-                --assert false report "Porta de saida: "&integer'image(fault_port) severity note;
                 -- limpa a string fault_type_string
                 for i in 1 to tmp_word'length loop
                     tmp_word(i) := NUL;
@@ -143,12 +141,8 @@ begin
             wait until clock='1';
             wait for 1 ns;
 
-            --for i in 0 to NPORT-1 loop
-                --assert false report "Router 00"&to_hstring(address)&" => Fault rate in port "&PORT_NAME(i)&": "&real'image(fault_rate_Nports(i)) severity note;
-            --end loop;
-
             fault_injected := (others=>'0');
-            uniform(seed1, seed2, rand); -- generate random number
+            uniform(seed1, seed2, rand);
 
             while true loop
 
@@ -167,7 +161,7 @@ begin
                         if (fault_counter_Nports(i) >= 1.0) then
                             fault_counter_Nports(i) := fault_counter_Nports(i) - 1.0;
                             fault_injected(i) := '0';
-                            uniform(seed1, seed2, rand); -- generate random number
+                            uniform(seed1, seed2, rand);
                         end if;
                     else
                         FaultNPorts(i)(BF)(0) <= '0';
@@ -175,8 +169,10 @@ begin
                     end if;
                 end loop;
 
-                wait for 20 ns; -- clock period
+                wait for CLOCK_PERIOD;
             end loop;
+        else
+            report "input fault file fault_" & to_hstring(address) & ".txt could not be open";
         end if;
         wait;
     end process;
