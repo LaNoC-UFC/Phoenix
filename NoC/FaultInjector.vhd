@@ -153,7 +153,7 @@ begin
             while true loop
 
                 for i in 0 to NPORT-1 loop
-                    if (tx(i)='1' and credit(i)='1' and restransmit(i)='0') then
+                    if (tx(i)='1' and credit(i)='1') then
                         fault_counter_Nports(i) := fault_counter_Nports(i) + fault_rate_Nports(i);
                         if (fault_counter_Nports(i) >= rand and fault_injected(i) = '0') then
                             FaultNPorts(i)(BF)(0) <= '1';
