@@ -142,9 +142,10 @@ begin
     process(reset, clock_rx)
         variable count: integer;
         variable pkt_received: std_logic := '0';
-        file my_output : TEXT open WRITE_MODE is "retransmission_00"&to_hstring(address)&".txt";
+        file my_output : TEXT; 
+        variable fstatus: file_open_status := STATUS_ERROR;
         variable my_output_line : LINE;
-        variable count_retx: integer;
+        variable count_retx: integer := 0;
         variable total_count_retx: regflit;
     begin
         if reset = '1' then
@@ -156,11 +157,11 @@ begin
             
         elsif clock_rx'event and clock_rx = '0' then
             if (rx = '0' and pkt_received='1') then
-            count := 0;
-            last_count_rx <= (others=>'1');
-            pkt_received := '0';
-            pkt_size <= (others=>'0');
-            count_retx := 0;
+                count := 0;
+                last_count_rx <= (others=>'1');
+                pkt_received := '0';
+                pkt_size <= (others=>'0');
+                count_retx := 0;
             end if;
 
             -- se tenho espaco e se tem alguem enviando, armazena, mas
@@ -203,7 +204,10 @@ begin
                 if (count = pkt_size+2 and pkt_size > 0) then
                     pkt_received := '1';
 
-                    if (bufLocation /= LOCAL) then
+                    if (count_retx /= 0) then
+                        if(fstatus /= OPEN_OK) then
+                            file_open(fstatus, my_output,"retransmission_00"&to_hstring(address)&".txt",WRITE_MODE);
+                        end if;
                         write(my_output_line, "Packet in port "&PORT_NAME(bufLocation)&" received "&integer'image(count_retx)&" flits with double error "&time'image(now));
                         writeline(my_output, my_output_line);
                     end if;
