@@ -42,7 +42,7 @@ architecture behavior of routingMechanism is
    signal VertInf, VertSup : regAddr;
    signal func : STD_LOGIC_VECTOR(7 downto 0);
    signal OP : STD_LOGIC_VECTOR(4 downto 0);
-   type arrayIP is array ((NREG-1) downto 0) of std_logic_vector(4 downto 0);
+   type arrayIP is array ((NREG-1) downto 0) of std_logic_vector(NPORT-1 downto 0);
    signal IP : arrayIP;
    signal IP_lido: STD_LOGIC_VECTOR(4 downto 0);
    signal i : integer := 0;
@@ -59,7 +59,7 @@ begin
         rowInf(j) <= TO_INTEGER(unsigned(RAM(j)(CELL_SIZE-6 downto CELL_SIZE-5-NBITS))) when ctrl = '0' else 0;
         colInf(j) <= TO_INTEGER(unsigned(RAM(j)(CELL_SIZE-6-NBITS downto CELL_SIZE-5-2*NBITS))) when ctrl = '0' else 0;
         rowSup(j) <= TO_INTEGER(unsigned(RAM(j)(CELL_SIZE-6-2*NBITS downto CELL_SIZE-5-3*NBITS))) when ctrl = '0' else 0;
-        colSup(j) <= TO_INTEGER(unsigned(RAM(j)(CELL_SIZE-6-3*NBITS downto 5))) when ctrl = '0' else 0;
+        colSup(j) <= TO_INTEGER(unsigned(RAM(j)(CELL_SIZE-6-3*NBITS downto NPORT))) when ctrl = '0' else 0;
 
       H(j) <= '1' when rowDst >= rowInf(j) and rowDst <= rowSup(j) and
                       colDst >= colInf(j) and colDst <= colSup(j) and
@@ -73,7 +73,7 @@ begin
       if ce = '1' and ctrl = '0' then
          for i in 0 to (NREG-1) loop
             if H(i) = '1' then
-               data <= RAM(i)(4 downto 0);
+               data <= RAM(i)(NPORT-1 downto 0);
             end if;
          end loop;
       end if;
@@ -81,20 +81,20 @@ begin
 
    func <= operacao(7 downto 0);
 
-   IP_lido <= buffCtrl(0)(4 downto 0);
-   VertInf <= buffCtrl(1)(7 downto 0);
-   VertSup <= buffCtrl(2)(7 downto 0);
-   OP <= buffCtrl(3)(4 downto 0);
+   IP_lido <= buffCtrl(0)(IP_lido'high downto 0);
+   VertInf <= buffCtrl(1)(VertInf'high downto 0);
+   VertSup <= buffCtrl(2)(VertSup'high downto 0);
+   OP <= buffCtrl(3)(OP'high downto 0);
 
    process(ceT,ctrl)
    begin
       if ctrl = '0' then
          i <= 0;
       elsif ctrl = '1' and ceT = '1' and func = x"01" then
-         RAM(i)(25 downto 21) <= IP_lido(4 downto 0);
-         RAM(i)(20 downto 13) <= VertInf(7 downto 0);
-         RAM(i)(12 downto 5) <= VertSup(7 downto 0);
-         RAM(i)(4 downto 0) <= OP(4 downto 0);
+         RAM(i)(CELL_SIZE-1 downto CELL_SIZE-5) <= IP_lido;
+         RAM(i)(CELL_SIZE-6 downto CELL_SIZE-5-2*NBITS) <= VertInf;
+         RAM(i)(CELL_SIZE-6-2*NBITS downto NPORT) <= VertSup;
+         RAM(i)(NPORT-1 downto 0) <= OP;
          if (i = NREG-1) then
             i <= 0;
          else
