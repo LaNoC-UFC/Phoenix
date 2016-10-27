@@ -115,6 +115,7 @@ begin
 
     process
         file file_pointer: text;
+        variable fstatus: file_open_status;
         variable current_package: string (1 to TAM_LINHA);
         variable char_pointer: integer;
         variable desired_input_time: integer := 0;
@@ -124,61 +125,66 @@ begin
         variable current_flit_index: integer;
         variable is_control_package: std_logic;
     begin
-        file_open(file_pointer,"In/in"&to_hstring(address)&".txt",READ_MODE);
-        while not endfile(file_pointer) loop
-            current_package := next_package(file_pointer);
-            char_pointer := current_package'low;
-            next_integer(current_package, char_pointer, desired_input_time);
+        file_open(fstatus, file_pointer,"In/in"&to_hstring(address)&".txt",READ_MODE);
+        if(fstatus = OPEN_OK) then
+        
+            while not endfile(file_pointer) loop
+                current_package := next_package(file_pointer);
+                char_pointer := current_package'low;
+                next_integer(current_package, char_pointer, desired_input_time);
 
-            done <= '0';
-            data <= (others=>'0');
+                done <= '0';
+                data <= (others=>'0');
 
-            -- wait for injection time
-            while not (currentTime >= desired_input_time) loop
-                wait for 1 ns;
-            end loop;
+                -- wait for injection time
+                while not (currentTime >= desired_input_time) loop
+                    wait for 1 ns;
+                end loop;
 
-            current_flit_index := 0;
-            is_control_package := '0';
-            package_size := (others=>'0');
+                current_flit_index := 0;
+                is_control_package := '0';
+                package_size := (others=>'0');
 
-            while ((current_flit_index < package_size + HEADER_SIZE)) loop
+                while ((current_flit_index < package_size + HEADER_SIZE)) loop
 
-                if (enable = '1') then
-                    if (current_flit_index >= 9 and current_flit_index <= 12 and is_control_package = '0') then
-                        current_flit := actual_input_time(((13-current_flit_index)*TAM_FLIT-1) downto ((12-current_flit_index)*TAM_FLIT));
-                    else
-                        if (current_package(char_pointer) /= NUL) then
-                            next_regflit(current_package, char_pointer, current_flit);
+                    if (enable = '1') then
+                        if (current_flit_index >= 9 and current_flit_index <= 12 and is_control_package = '0') then
+                            current_flit := actual_input_time(((13-current_flit_index)*TAM_FLIT-1) downto ((12-current_flit_index)*TAM_FLIT));
                         else
-                            current_flit := std_logic_vector(to_unsigned(current_flit_index, current_flit'length));
+                            if (current_package(char_pointer) /= NUL) then
+                                next_regflit(current_package, char_pointer, current_flit);
+                            else
+                                current_flit := std_logic_vector(to_unsigned(current_flit_index, current_flit'length));
+                            end if;
                         end if;
+
+                        if (current_flit_index = 0) then
+                            is_control_package := current_flit(TAM_FLIT-1);
+                            actual_input_time := currentTime;
+                        elsif (current_flit_index = 1 and is_control_package = '0') then
+                            current_flit := current_flit + TIME_STAMP_SIZE;
+                            package_size := current_flit;
+                        end if;
+
+                        done <= '1';
+                        data <= current_flit;
+                        current_flit_index := current_flit_index + 1;
+                    else
+                        done <= '0';
+                        data <= (others=>'0');
                     end if;
 
-                    if (current_flit_index = 0) then
-                        is_control_package := current_flit(TAM_FLIT-1);
-                        actual_input_time := currentTime;
-                    elsif (current_flit_index = 1 and is_control_package = '0') then
-                        current_flit := current_flit + TIME_STAMP_SIZE;
-                        package_size := current_flit;
-                    end if;
+                    wait for CLOCK_PERIOD;
+                end loop;
 
-                    done <= '1';
-                    data <= current_flit;
-                    current_flit_index := current_flit_index + 1;
-                else
-                    done <= '0';
-                    data <= (others=>'0');
-                end if;
-
-                wait for CLOCK_PERIOD;
+                done <= '0';
+                data <= (others=>'0');
+            
             end loop;
-
-            done <= '0';
-            data <= (others=>'0');
-
-        end loop;
-    wait;
+        else
+            report "Couldnt open In/in"&to_hstring(address)&".txt";
+        end if;
+        wait;
     end process;
 
 end inputModule;
