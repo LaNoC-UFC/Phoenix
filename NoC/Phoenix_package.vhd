@@ -136,7 +136,7 @@ package body PhoenixPackage is
         variable addrX, addrY: regmetadeflit;
         variable addr: regflit;
     begin
-        addrX := CONV_STD_LOGIC_VECTOR(index/NUM_X,METADEFLIT);
+        addrX := CONV_STD_LOGIC_VECTOR(index/NUM_Y, METADEFLIT);
         addrY := CONV_STD_LOGIC_VECTOR(index mod NUM_Y, METADEFLIT);
         addr := addrX & addrY;
         return addr;
