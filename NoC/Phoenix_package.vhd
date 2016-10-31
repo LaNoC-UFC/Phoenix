@@ -141,6 +141,17 @@ package body PhoenixPackage is
         addr := addrX & addrY;
         return addr;
     end ADDRESS_FROM_INDEX;
+       
+    function INDEX_FROM_ADDRESS (address: std_logic_vector) return integer is
+        variable number: integer := 0;
+        alias addrX is address(TAM_FLIT-1 downto METADEFLIT);
+        alias addrY is address(METADEFLIT-1 downto 0);
+        variable X : integer := CONV_INTEGER(addrX);
+        variable Y : integer := CONV_INTEGER(addrY);
+    begin
+        number := X*NUM_Y + Y;
+        return number;
+    end INDEX_FROM_ADDRESS;
     --
     -- converte um inteiro em um std_logic_vector(2 downto 0)
     --
@@ -253,17 +264,6 @@ package body PhoenixPackage is
         str := str1 & str2;
         return str;
     end CONV_STRING_32BITS;
-
-    function INDEX_FROM_ADDRESS (address: std_logic_vector) return integer is
-        variable number: integer := 0;
-        alias addrX is address(TAM_FLIT-1 downto METADEFLIT);
-        alias addrY is address(METADEFLIT-1 downto 0);
-        variable X : integer := CONV_INTEGER(addrX);
-        variable Y : integer := CONV_INTEGER(addrY);
-    begin
-        number := X*NUM_X + Y;
-        return number;
-    end INDEX_FROM_ADDRESS;
 
   -- converte hexa para string
     function to_hstring (value     : STD_LOGIC_VECTOR) return STRING is
