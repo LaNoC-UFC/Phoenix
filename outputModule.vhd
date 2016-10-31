@@ -23,7 +23,8 @@ begin
     process(clock)
         variable current_flit_index : integer := 0;
         variable package_size : std_logic_vector(TAM_FLIT-1 downto 0) := (others=>'0');
-        file file_pointer : TEXT open WRITE_MODE is "Out/out"&to_hstring(address)&".txt";
+        file file_pointer : TEXT;
+        variable fstatus: file_open_status := STATUS_ERROR;
         variable current_line : LINE;
         variable desired_input_time: std_logic_vector ((TAM_FLIT*4)-1 downto 0) := (others=>'0');
         variable actual_input_time: std_logic_vector ((TAM_FLIT*4)-1 downto 0) := (others=>'0');
@@ -31,7 +32,6 @@ begin
         variable package_latency: integer;
         variable is_control_package: std_logic;
     begin
-
         if (clock'event and clock = '0') then
             if tx = '1' then
                 -- head
@@ -64,6 +64,9 @@ begin
                         package_latency := to_integer(signed(tail_arrival_time-desired_input_time));
                         write(current_line, " " & string'(integer'image(package_latency)));
 
+                        if(fstatus /= OPEN_OK) then
+                            file_open(fstatus, file_pointer,"Out/out"&to_hstring(address)&".txt",WRITE_MODE);
+                        end if;
                         writeline(file_pointer, current_line);
                     end if;
                     current_flit_index := -1;
