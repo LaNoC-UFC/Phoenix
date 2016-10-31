@@ -191,12 +191,12 @@ package body PhoenixPackage is
             when '7' => bin := "0111";
             when '8' => bin := "1000";
             when '9' => bin := "1001";
-            when 'A' => bin := "1010";
-            when 'B' => bin := "1011";
-            when 'C' => bin := "1100";
-            when 'D' => bin := "1101";
-            when 'E' => bin := "1110";
-            when 'F' => bin := "1111";
+            when 'A' | 'a' => bin := "1010";
+            when 'B' | 'b' => bin := "1011";
+            when 'C' | 'c' => bin := "1100";
+            when 'D' | 'd' => bin := "1101";
+            when 'E' | 'e' => bin := "1110";
+            when 'F' | 'f' => bin := "1111";
             when others =>  bin := "0000";
         end case;
         return bin;
