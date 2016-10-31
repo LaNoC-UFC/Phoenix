@@ -1,3 +1,4 @@
+file mkdir Out
 quit -sim
 vsim work.topnoc
 set StdArithNoWarnings 1
