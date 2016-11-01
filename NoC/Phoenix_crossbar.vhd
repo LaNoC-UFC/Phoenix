@@ -13,8 +13,8 @@
 
 library IEEE;
 use IEEE.std_logic_1164.all;
-use IEEE.std_logic_unsigned.all;
 use work.PhoenixPackage.all;
+use ieee.numeric_std.all;
 
 entity Phoenix_crossbar is
 port(
@@ -37,10 +37,10 @@ architecture Phoenix_crossbar of Phoenix_crossbar is
 begin
 
     MUXS: for i in EAST to LOCAL generate
-        tx(i)   <= data_av(CONV_INTEGER(tab_out(i))) when free(i) = '0' else '0';
-        data_out(i) <= data_in(CONV_INTEGER(tab_out(i))) when free(i) = '0' else (others=>'0');
-        data_ack(i) <= credit_i(CONV_INTEGER(tab_in(i))) when data_av(i) = '1' else '0';
-        retransmission_in_buf(i) <= retransmission_i(CONV_INTEGER(tab_in(i))) when data_av(i)='1' else '0';
+        tx(i)   <= data_av(to_integer( unsigned(tab_out(i)))) when free(i) = '0' else '0';
+        data_out(i) <= data_in(to_integer( unsigned(tab_out(i)))) when free(i) = '0' else (others=>'0');
+        data_ack(i) <= credit_i(to_integer( unsigned(tab_in(i)))) when data_av(i) = '1' else '0';
+        retransmission_in_buf(i) <= retransmission_i(to_integer( unsigned(tab_in(i)))) when data_av(i)='1' else '0';
     end generate MUXS;
 
 end Phoenix_crossbar;

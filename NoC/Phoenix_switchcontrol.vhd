@@ -1,8 +1,8 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.all;
-use IEEE.STD_LOGIC_unsigned.all;
 use work.PhoenixPackage.all;
 use work.HammingPack16.all;
+use ieee.numeric_std.all;
 
 entity SwitchControl is
     generic(address : regflit := (others=>'0'));
@@ -70,7 +70,7 @@ architecture RoutingTable of SwitchControl is
 begin
     ask <= '1' when OR_REDUCTION(h) else '0';
     incoming <= CONV_VECTOR(sel);
-    header <= data(CONV_INTEGER(incoming));
+    header <= data(to_integer(unsigned(incoming)));
 
     -- escolhe uma das portas que solicitou chaveamento
     process(sel, h)
@@ -133,7 +133,7 @@ begin
                 tabelaDeFalhas(SOUTH)((3*COUNTERS_SIZE+1) downto 3*COUNTERS_SIZE) <= c_faultTableFDM(SOUTH) & '0';
 
             -- escrita na tabela de falhas pelo FPPM
-            elsif (write_FaultTable /= 0) then
+            elsif (unsigned(write_FaultTable) /= 0) then
 
                 -- escreve apenas se o sinal de escrit tiver ativo e se o sttus do link tiver uma severidade maior ou igual a contida na tabela
                 for i in 0 to HAMM_NPORT-1 loop
@@ -305,7 +305,7 @@ begin
                     end if;
 
                 when S4 =>
-                    source(CONV_INTEGER(incoming)) <= CONV_VECTOR(indice_dir);
+                    source(to_integer(unsigned(incoming))) <= CONV_VECTOR(indice_dir);
                     mux_out(indice_dir) <= incoming;
                     auxfree(indice_dir) <= '0';
                     ack_h(sel) <= '1';
@@ -319,7 +319,7 @@ begin
 
             for i in EAST to LOCAL loop
                 if sender(i) = '0' and  sender_ant(i) = '1' then
-                    auxfree(CONV_INTEGER(source(i))) <= '1';
+                    auxfree(to_integer(unsigned(source(i)))) <= '1';
                 end if;
             end loop;
         end if;

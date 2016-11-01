@@ -40,11 +40,9 @@
 ---------------------------------------------------------------------------------------
 library IEEE;
 use IEEE.std_logic_1164.all;
-use IEEE.std_logic_unsigned.all;
 use work.PhoenixPackage.all;
 use work.HammingPack16.all;
 use STD.textio.all;
-use ieee.std_logic_arith.all;
 use ieee.numeric_std.all;
 USE ieee.math_real.ALL;   -- for UNIFORM, TRUNC functions
 
@@ -141,11 +139,11 @@ begin
    end generate;
 
    -- manda testLink_o = '1' para todas portas de saida QUANDO algum buffer detectar pacote de controle do tipo TEST_LINKS
-   testLink_o <= (others=>'1') when c_strLinkTst /= x"0"
+   testLink_o <= (others=>'1') when c_strLinkTst /= std_logic_vector(to_unsigned(0, c_strLinkTst'length))
          else (others=>'0');
 
    -- manda aos buffers c_strLinkTstOthers = '1' QUANDO receber de algum roteador vizinho pedir para testar o link
-   c_strLinkTstOthers <= (others=>'1') when testLink_i /= x"0"
+   c_strLinkTstOthers <= (others=>'1') when testLink_i /= std_logic_vector(to_unsigned(0, testLink_i'length))
          else (others=>'0');
 
     Faulter : Entity work.FaultInjector
@@ -168,7 +166,7 @@ begin
         port map(
             clock => clock,
             reset => reset,
-            data_in => dataDecoded(i),
+            data_in => unsigned(dataDecoded(i)),
             rx => rx(i),
             h => h(i), -- requisicao de chaveamento
             c_buffCtrlFalha => c_BuffTabelaFalhas(i), -- tabela de falhas lida do pacote de controle que solicitou escrever/atualizar a tabela
@@ -202,7 +200,7 @@ begin
     port map(
         clock => clock,
         reset => reset,
-        data_in => dataDecoded(LOCAL),
+        data_in => unsigned(dataDecoded(LOCAL)),
         rx => rx(LOCAL),
         h => h(LOCAL),
         c_ctrl=> c_ctrl, -- (exclusivo do buffer local) indica se foi lido ou criado de um pacote de controle pelo buffer

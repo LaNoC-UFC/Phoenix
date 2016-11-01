@@ -19,11 +19,10 @@
 ----------------------------------------------------------------------------------
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
-use IEEE.std_logic_unsigned.all;
 use work.PhoenixPackage.all;
 -- Uncomment the following library declaration if using
 -- arithmetic functions with Signed or Unsigned values
---use IEEE.NUMERIC_STD.ALL;
+use ieee.numeric_std.all;
 
 -- Uncomment the following library declaration if instantiating
 -- any Xilinx primitives in this code.
@@ -99,9 +98,9 @@ begin
             (others=>'0') when strLinkTstAll ='1' and compTest = '0' else --envio do dado(2) de test_link
             (others=>'Z');
 
-      tmp(i) <= '0'   when compTest = '1' and (data_inA(i) xor fillOne) = x"0" else -- '0' QUANDO estiver enviando dado com todos os bits em '1' E receber o mesmo dado que enviou (todos os bits em '1')
+      tmp(i) <= '0'   when compTest = '1' and (data_inA(i) xor fillOne) = std_logic_vector(to_unsigned(0, fillOne'length)) else -- '0' QUANDO estiver enviando dado com todos os bits em '1' E receber o mesmo dado que enviou (todos os bits em '1')
               '1'   when compTest = '1' else -- '1' QUANDO estiver enviando dado com todos os bits em '1' (nao recebe o mesmo dado que enviou, logo tem falha)
-              '0'   when compTest = '0' and (data_inA(i) xor fillZero) = x"0" else -- '0' QUANDO estiver enviando dado com todos os bits em '0' E receber o mesmo dado que enviou (todos os bits em '0')
+              '0'   when compTest = '0' and (data_inA(i) xor fillZero) = std_logic_vector(to_unsigned(0, fillZero'length)) else -- '0' QUANDO estiver enviando dado com todos os bits em '0' E receber o mesmo dado que enviou (todos os bits em '0')
               '1'   when compTest = '0' else  -- '1' QUANDO estiver enviando dado com todos os bits em '1' (nao recebe o mesmo dado que enviou, logo tem falha)
               'Z';
    end generate ALL_MUX;

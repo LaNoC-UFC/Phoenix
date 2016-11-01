@@ -1,7 +1,6 @@
 library IEEE;
 use IEEE.std_logic_1164.all;
 use STD.textio.all;
-use IEEE.std_logic_unsigned.all;
 use ieee.numeric_std.all;
 use work.PhoenixPackage.all;
 
@@ -13,7 +12,7 @@ entity outputModule is
         clock:          in std_logic;
         tx:             in std_logic;
         data:           in regflit;
-        currentTime:    in std_logic_vector(4*TAM_FLIT-1 downto 0)
+        currentTime:    in unsigned(4*TAM_FLIT-1 downto 0)
     );
 end;
 
@@ -22,13 +21,13 @@ begin
 
     process(clock)
         variable current_flit_index : integer := 0;
-        variable package_size : std_logic_vector(TAM_FLIT-1 downto 0) := (others=>'0');
+        variable package_size : unsigned(TAM_FLIT-1 downto 0) := (others=>'0');
         file file_pointer : TEXT;
         variable fstatus: file_open_status := STATUS_ERROR;
         variable current_line : LINE;
-        variable desired_input_time: std_logic_vector ((TAM_FLIT*4)-1 downto 0) := (others=>'0');
-        variable actual_input_time: std_logic_vector ((TAM_FLIT*4)-1 downto 0) := (others=>'0');
-        variable tail_arrival_time: std_logic_vector ((TAM_FLIT*4)-1 downto 0) := (others=>'0');
+        variable desired_input_time: unsigned ((TAM_FLIT*4)-1 downto 0) := (others=>'0');
+        variable actual_input_time: unsigned ((TAM_FLIT*4)-1 downto 0) := (others=>'0');
+        variable tail_arrival_time: unsigned ((TAM_FLIT*4)-1 downto 0) := (others=>'0');
         variable package_latency: integer;
         variable is_control_package: std_logic;
     begin
@@ -41,16 +40,16 @@ begin
                 -- size
                 elsif (current_flit_index = 1) then
                     write(current_line, string'(to_hstring(data)) & " ");
-                    package_size := data + 2;
+                    package_size := unsigned(data) + 2;
                 -- payload
                 elsif (current_flit_index < package_size - 1) then
 
                     if (current_flit_index >= 3 and current_flit_index <= 6 and is_control_package = '0') then
-                        desired_input_time((TAM_FLIT*(7-current_flit_index)-1) downto (TAM_FLIT*(6-current_flit_index))) := data;
+                        desired_input_time((TAM_FLIT*(7-current_flit_index)-1) downto (TAM_FLIT*(6-current_flit_index))) := unsigned(data);
                     end if;
 
                     if (current_flit_index >= 9 and current_flit_index <= 12 and is_control_package = '0') then
-                        actual_input_time((TAM_FLIT*(13-current_flit_index)-1) downto (TAM_FLIT*(12-current_flit_index))) := data;
+                        actual_input_time((TAM_FLIT*(13-current_flit_index)-1) downto (TAM_FLIT*(12-current_flit_index))) := unsigned(data);
                     end if;
 
                     if (current_flit_index = 2 or current_flit_index = 7 or current_flit_index = 8) then

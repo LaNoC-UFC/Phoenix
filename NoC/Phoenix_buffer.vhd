@@ -28,10 +28,9 @@
 ---------------------------------------------------------------------------------------
 library IEEE;
 use IEEE.std_logic_1164.all;
-use IEEE.std_logic_unsigned.all;
 use work.PhoenixPackage.all;
 use work.HammingPack16.all;
-use ieee.std_logic_arith.CONV_STD_LOGIC_VECTOR;
+use ieee.numeric_std.all;
 use STD.textio.all;
 
 -- interface da Phoenix_buffer
@@ -43,7 +42,7 @@ port(
     reset:      in  std_logic;
     clock_rx:   in  std_logic;
     rx:         in  std_logic;
-    data_in:    in  regflit;
+    data_in:    in  unsigned((TAM_FLIT-1) downto 0);
     credit_o:   out std_logic;
     h:          out std_logic; -- requisicao de chaveamento
     c_ctrl:         out std_logic; -- indica se foi lido ou criado de um pacote de controle pelo buffer
@@ -76,13 +75,13 @@ type fila_out is (S_INIT, S_PAYLOAD, S_SENDHEADER, S_HEADER, S_END, S_END2,C_PAY
 signal EA : fila_out;
 
 signal buf: buff := (others=>(others=>'0'));
-signal first,last: pointer := (others=>'0');
+signal first,last: unsigned((TAM_POINTER-1) downto 0) := (others=>'0');
 signal tem_espaco: std_logic := '0';
-signal counter_flit: regflit := (others=>'0');
+signal counter_flit: unsigned((TAM_FLIT-1) downto 0) := (others=>'0');
 
 signal eh_controle : std_logic := '0';
 signal buffCtrl : buffControl := (others=>(others=>'0'));  -- XY | XY | DIR
-signal codigoControl : regflit:= (others=>'0');
+signal codigoControl : unsigned((TAM_FLIT-1) downto 0):= (others=>'0');
 signal buffCtrlFalha : row_FaultTable_Ports := (others=>(others=>'0'));
 signal ceTF_out : std_logic := '0';
 
@@ -94,10 +93,10 @@ signal c_strLinkTstLocal : std_logic := '0'; -- sinal do pedido de inicio de tes
 signal old_tabelaFalhas : regNport :=(others=>'0'); -- antiga tabela e falhas com 1 bit para cada porta. '0' indica sem falha, '1' indica com falha
 
 signal last_retransmission: regflit := (others=>'0');
-signal counter_flit_up: regflit := (others=>'0');
+signal counter_flit_up: unsigned((TAM_FLIT-1) downto 0) := (others=>'0');
 signal last_count_rx: regflit := (others=>'0');
 signal retransmission_o: std_logic := '0';
-signal pkt_size: regflit := (others=>'0');
+signal pkt_size: unsigned((TAM_FLIT-1) downto 0) := (others=>'0');
 
 
 begin
@@ -111,7 +110,7 @@ begin
     old_tabelaFalhas(SOUTH) <= c_tabelafalhas(SOUTH)(3*COUNTERS_SIZE+1);
 
     -- sinal indica se tem falha no link destino
-    c_error <= '1' when (c_direcao and old_tabelafalhas) /= 0 else '0';
+    c_error <= '1' when unsigned(c_direcao and old_tabelafalhas) /= 0 else '0';
 
    -------------------------------------------------------------------------------------------
    -- ENTRADA DE DADOS NA FILA
@@ -146,7 +145,7 @@ begin
         variable fstatus: file_open_status := STATUS_ERROR;
         variable my_output_line : LINE;
         variable count_retx: integer := 0;
-        variable total_count_retx: regflit;
+        variable total_count_retx: unsigned((TAM_FLIT-1) downto 0);
     begin
         if reset = '1' then
             last <= (others=>'0');
@@ -176,9 +175,9 @@ begin
                     if (count = pkt_size+1 and pkt_size > 0) then
                         total_count_retx := data_in;
                         total_count_retx := total_count_retx + count_retx;
-                        buf(CONV_INTEGER(last)) <= total_count_retx;
+                        buf(to_integer(last)) <= std_logic_vector(total_count_retx);
                     else
-                        buf(CONV_INTEGER(last)) <= data_in; -- armazena o flit
+                        buf(to_integer(last)) <= std_logic_vector(data_in); -- armazena o flit
                     end if;
 
                     if (count = 1) then
@@ -198,7 +197,7 @@ begin
                 else
                     retransmission_o <= '1';
                     count_retx := count_retx + 1;
-                    last_count_rx <= CONV_STD_LOGIC_VECTOR(count,TAM_FLIT);
+                    last_count_rx <= std_logic_vector(to_unsigned(count,TAM_FLIT));
                 end if;
     
                 if (count = pkt_size+2 and pkt_size > 0) then
@@ -222,7 +221,7 @@ end process;
    -------------------------------------------------------------------------------------------
 
    -- disponibiliza o dado para transmissao. Se nao estiver criando um pacote de controle, envia normalmente o dado do buffer, caso contrario envia dado criado (c_buffer)
-   data <= buf(CONV_INTEGER(first)) when c_createmessage ='0' else c_Buffer;
+   data <= buf(to_integer(first)) when c_createmessage ='0' else c_Buffer;
 
    -- Quando sinal reset eh ativado a maquina de estados avanca para o estado S_INIT.
    -- No estado S_INIT os sinais counter_flit (contador de flits do corpo do pacote), h (que
@@ -274,7 +273,7 @@ end process;
 
                   -- se o primeiro flit do pacote a ser transmitido possui o bit indicando que eh um pacote de controle E se nesse primeiro flit possui o endereco do roteador em que o buffer se encontra
                   -- OU se devo criar um pacote de controle com a tabela de falhas (este pacote eh criado se for pedido a leitura da tabela de falhas)
-                  if((buf(CONV_INTEGER(first))(TAM_FLIT-1)='1') and (buf(CONV_INTEGER(first))((TAM_FLIT-2) downto 0)=address((TAM_FLIT-2) downto 0))) or c_createmessage = '1' then -- PACOTE DE CONTROLE
+                  if((buf(to_integer(first))(TAM_FLIT-1)='1') and (buf(to_integer(first))((TAM_FLIT-2) downto 0)=address((TAM_FLIT-2) downto 0))) or c_createmessage = '1' then -- PACOTE DE CONTROLE
 
                      -- se preciso criar um pacote com a tabela de falhas. Comentario antigo: o pacote de controle pare este roteador
                      if c_createmessage = '1' then
@@ -356,7 +355,7 @@ end process;
                      -- solicitou reenvio do pacote, logo ponteiro nao sera incrementado e dado sera enviado novamente
                      else
                         last_retransmission <= (0=>'1', others=>'0'); -- 1
-                        --assert last_retransmission /= 1 report "sender detectou que nao conseguiu transmitir flit correto. Pacote descartado. Flit "&integer'image(CONV_INTEGER(last_retransmission));
+                        --assert last_retransmission /= 1 report "sender detectou que nao conseguiu transmitir flit correto. Pacote descartado. Flit "&integer'image(to_integer(last_retransmission));
                      end if;
 
 
@@ -378,10 +377,10 @@ end process;
                if (( data_ack = '1' or c_error = '1') and retransmission_in = '1') then
                   if (counter_flit = 0) then
                      last_retransmission <= (1=>'1', others=>'0'); -- 2
-                     --assert last_retransmission /= 2 report "sender detectou que nao conseguiu transmitir flit correto. Pacote descartado. Flit "&integer'image(CONV_INTEGER(last_retransmission));
+                     --assert last_retransmission /= 2 report "sender detectou que nao conseguiu transmitir flit correto. Pacote descartado. Flit "&integer'image(to_integer(last_retransmission));
                   else
-                     last_retransmission <= counter_flit_up;
-                     --assert last_retransmission /= counter_flit_up report "sender detectou que nao conseguiu transmitir flit correto. Pacote descartado. Flit "&integer'image(CONV_INTEGER(last_retransmission));
+                     last_retransmission <= std_logic_vector(counter_flit_up);
+                     --assert last_retransmission /= counter_flit_up report "sender detectou que nao conseguiu transmitir flit correto. Pacote descartado. Flit "&integer'image(to_integer(last_retransmission));
                   end if;
 
                -- se nao eh o ultimo flit do pacote E se foi confirmado que foi recebido com sucesso o dado transmitido OU o link destino esta com falha. Comentario antigo: confirmacao do envio de um dado que nao eh o tail
@@ -389,7 +388,7 @@ end process;
 
                   -- se counter_flit eh zero indica que terei que receber o size do payload
                   if counter_flit = x"0" then
-                     counter_flit <=  buf(CONV_INTEGER(first));
+                     counter_flit <=  unsigned(buf(to_integer(first)));
                      counter_flit_up <= (1=>'1', others=>'0'); -- 2
                   else
                      counter_flit <= counter_flit - 1;
@@ -433,7 +432,7 @@ end process;
             when C_SIZE =>
                -- detectou dado na fila (tem dados a serem enviados no buffer)   e nao pediu retransmissao
                if (first /= last and retransmission_o='0') then
-                  counter_flit <= buf(CONV_INTEGER(first)); -- leitura do segundo flit (tamanho do pacote)
+                  counter_flit <= unsigned(buf(to_integer(first))); -- leitura do segundo flit (tamanho do pacote)
 
                   -- incrementa o pointeiro first (pointeiro usado para envio)
                   if first = TAM_BUFFER - 1 then
@@ -462,20 +461,20 @@ end process;
 
                -- indice igual a zero, ou seja, primeiro flit do payload do pacote (onde possui o codigo do pacote de controle)
                if (indexFlitCtrl = 0 and retransmission_o='0') then
-                        codigoControl <= buf(CONV_INTEGER(first)); -- leitura do tipo do pacote de controle (leitura do Code)
+                        codigoControl <= unsigned(buf(to_integer(first))); -- leitura do tipo do pacote de controle (leitura do Code)
                         indexFlitCtrl := indexFlitCtrl + 1; -- incrementa o indice do payload que sera lido
                         counter_flit <= counter_flit - 1; -- decrementa o numero de flits que faltam a ser lidos/processados do pacote
 
                         -- define qual o tamanho da variavel de comando (tamanho do payload).
                         -- Pode ser entendido como o numero de flits no payload usados para processar o pacote de controle
                         if c_createmessage = '0' then
-                           if(CONV_INTEGER(buf(CONV_INTEGER(first))) = c_WR_ROUT_TAB) then
+                           if to_integer(unsigned(buf(to_integer(first)))) = c_WR_ROUT_TAB then
                               varControlCom := 5;
-                           elsif(CONV_INTEGER(buf(CONV_INTEGER(first))) = c_WR_FAULT_TAB) then
+                           elsif to_integer(unsigned(buf(to_integer(first)))) = c_WR_FAULT_TAB then
                               varControlCom := 9; -- code + tabela
-                           elsif(CONV_INTEGER(buf(CONV_INTEGER(first))) = c_RD_FAULT_TAB_STEP1) then
+                           elsif to_integer(unsigned(buf(to_integer(first)))) = c_RD_FAULT_TAB_STEP1 then
                               varControlCom := 1;
-                           elsif(CONV_INTEGER(buf(CONV_INTEGER(first))) = c_TEST_LINKS ) then
+                           elsif to_integer(unsigned(buf(to_integer(first)))) = c_TEST_LINKS  then
                               varControlCom := 1;
                            end if;
 
@@ -484,7 +483,7 @@ end process;
                            -- se ultimo pacote de controle recebido foi pedido de leitura da tabela de falhas
                            if codigoControl = c_RD_FAULT_TAB_STEP1 then
                               varControlCom := 10; -- code + origem + tabela
-                              codigoControl <= CONV_STD_LOGIC_VECTOR(c_RD_FAULT_TAB_STEP2, TAM_FLIT); -- atualiza codigo com c_RD_FAULT_TAB_STEP2
+                              codigoControl <= to_unsigned(c_RD_FAULT_TAB_STEP2, TAM_FLIT); -- atualiza codigo com c_RD_FAULT_TAB_STEP2
                               c_Buffer <= x"0004"; -- terceiro flit do pacote de controle criado que contem o tipo do pacote (code/codigo)
                            end if;
                         end if;
@@ -503,7 +502,7 @@ end process;
                            c_chipETable <= '1'; -- habilita escrita na tabela de roteamento
                            indexFlitCtrl := 1;
                         else
-                           buffCtrl(indexFlitCtrl-1) <= buf(CONV_INTEGER(first)); -- vai armazenando os dados lido do pacote de controle (o pacote tera uma linha da tabela de roteamento)
+                           buffCtrl(indexFlitCtrl-1) <= buf(to_integer(first)); -- vai armazenando os dados lido do pacote de controle (o pacote tera uma linha da tabela de roteamento)
 
                            if (first /= last) then
                               if indexFlitCtrl /= 4 then
@@ -519,25 +518,25 @@ end process;
                elsif (codigoControl = c_WR_FAULT_TAB and retransmission_o='0') then
 
                         case (indexFlitCtrl) is
-                           when 1 => buffCtrlFalha(EAST)((3*COUNTERS_SIZE+1) downto 3*COUNTERS_SIZE) <= buf(CONV_INTEGER(first))((METADEFLIT+1) downto METADEFLIT); -- leitura dos 2 bits que indicam falha que sera armazenado/atualizado na tabela de falhas
-                                buffCtrlFalha(EAST)((3*COUNTERS_SIZE-1) downto 2*COUNTERS_SIZE) <= buf(CONV_INTEGER(first))(COUNTERS_SIZE-1 downto 0); -- leitura do contador N
-                           when 2 => buffCtrlFalha(EAST)((2*COUNTERS_SIZE-1) downto COUNTERS_SIZE) <= buf(CONV_INTEGER(first))((METADEFLIT+COUNTERS_SIZE-1) downto METADEFLIT); -- leitura do contador M
-                                buffCtrlFalha(EAST)((COUNTERS_SIZE-1) downto 0) <= buf(CONV_INTEGER(first))(COUNTERS_SIZE-1 downto 0); -- leitura do contador P
+                           when 1 => buffCtrlFalha(EAST)((3*COUNTERS_SIZE+1) downto 3*COUNTERS_SIZE) <= buf(to_integer(first))((METADEFLIT+1) downto METADEFLIT); -- leitura dos 2 bits que indicam falha que sera armazenado/atualizado na tabela de falhas
+                                buffCtrlFalha(EAST)((3*COUNTERS_SIZE-1) downto 2*COUNTERS_SIZE) <= buf(to_integer(first))(COUNTERS_SIZE-1 downto 0); -- leitura do contador N
+                           when 2 => buffCtrlFalha(EAST)((2*COUNTERS_SIZE-1) downto COUNTERS_SIZE) <= buf(to_integer(first))((METADEFLIT+COUNTERS_SIZE-1) downto METADEFLIT); -- leitura do contador M
+                                buffCtrlFalha(EAST)((COUNTERS_SIZE-1) downto 0) <= buf(to_integer(first))(COUNTERS_SIZE-1 downto 0); -- leitura do contador P
 
-                           when 3 => buffCtrlFalha(WEST)((3*COUNTERS_SIZE+1) downto 3*COUNTERS_SIZE) <= buf(CONV_INTEGER(first))((METADEFLIT+1) downto METADEFLIT); -- leitura dos 2 bits que indicam falha que sera armazenado/atualizado na tabela de falhas
-                                buffCtrlFalha(WEST)((3*COUNTERS_SIZE-1) downto 2*COUNTERS_SIZE) <= buf(CONV_INTEGER(first))(COUNTERS_SIZE-1 downto 0); -- leitura do contador N
-                           when 4 => buffCtrlFalha(WEST)((2*COUNTERS_SIZE-1) downto COUNTERS_SIZE) <= buf(CONV_INTEGER(first))((METADEFLIT+COUNTERS_SIZE-1) downto METADEFLIT); -- leitura do contador M
-                                buffCtrlFalha(WEST)((COUNTERS_SIZE-1) downto 0) <= buf(CONV_INTEGER(first))(COUNTERS_SIZE-1 downto 0); -- leitura do contador P
+                           when 3 => buffCtrlFalha(WEST)((3*COUNTERS_SIZE+1) downto 3*COUNTERS_SIZE) <= buf(to_integer(first))((METADEFLIT+1) downto METADEFLIT); -- leitura dos 2 bits que indicam falha que sera armazenado/atualizado na tabela de falhas
+                                buffCtrlFalha(WEST)((3*COUNTERS_SIZE-1) downto 2*COUNTERS_SIZE) <= buf(to_integer(first))(COUNTERS_SIZE-1 downto 0); -- leitura do contador N
+                           when 4 => buffCtrlFalha(WEST)((2*COUNTERS_SIZE-1) downto COUNTERS_SIZE) <= buf(to_integer(first))((METADEFLIT+COUNTERS_SIZE-1) downto METADEFLIT); -- leitura do contador M
+                                buffCtrlFalha(WEST)((COUNTERS_SIZE-1) downto 0) <= buf(to_integer(first))(COUNTERS_SIZE-1 downto 0); -- leitura do contador P
 
-                           when 5 => buffCtrlFalha(NORTH)((3*COUNTERS_SIZE+1) downto 3*COUNTERS_SIZE) <= buf(CONV_INTEGER(first))((METADEFLIT+1) downto METADEFLIT); -- leitura dos 2 bits que indicam falha que sera armazenado/atualizado na tabela de falhas
-                                buffCtrlFalha(NORTH)((3*COUNTERS_SIZE-1) downto 2*COUNTERS_SIZE) <= buf(CONV_INTEGER(first))(COUNTERS_SIZE-1 downto 0); -- leitura do contador N
-                           when 6 => buffCtrlFalha(NORTH)((2*COUNTERS_SIZE-1) downto COUNTERS_SIZE) <= buf(CONV_INTEGER(first))((METADEFLIT+COUNTERS_SIZE-1) downto METADEFLIT); -- leitura do contador M
-                                buffCtrlFalha(NORTH)((COUNTERS_SIZE-1) downto 0) <= buf(CONV_INTEGER(first))(COUNTERS_SIZE-1 downto 0); -- leitura do contador P
+                           when 5 => buffCtrlFalha(NORTH)((3*COUNTERS_SIZE+1) downto 3*COUNTERS_SIZE) <= buf(to_integer(first))((METADEFLIT+1) downto METADEFLIT); -- leitura dos 2 bits que indicam falha que sera armazenado/atualizado na tabela de falhas
+                                buffCtrlFalha(NORTH)((3*COUNTERS_SIZE-1) downto 2*COUNTERS_SIZE) <= buf(to_integer(first))(COUNTERS_SIZE-1 downto 0); -- leitura do contador N
+                           when 6 => buffCtrlFalha(NORTH)((2*COUNTERS_SIZE-1) downto COUNTERS_SIZE) <= buf(to_integer(first))((METADEFLIT+COUNTERS_SIZE-1) downto METADEFLIT); -- leitura do contador M
+                                buffCtrlFalha(NORTH)((COUNTERS_SIZE-1) downto 0) <= buf(to_integer(first))(COUNTERS_SIZE-1 downto 0); -- leitura do contador P
 
-                           when 7 => buffCtrlFalha(SOUTH)((3*COUNTERS_SIZE+1) downto 3*COUNTERS_SIZE) <= buf(CONV_INTEGER(first))((METADEFLIT+1) downto METADEFLIT); -- leitura dos 2 bits que indicam falha que sera armazenado/atualizado na tabela de falhas
-                                buffCtrlFalha(SOUTH)((3*COUNTERS_SIZE-1) downto 2*COUNTERS_SIZE) <= buf(CONV_INTEGER(first))(COUNTERS_SIZE-1 downto 0); -- leitura do contador N
-                           when 8 => buffCtrlFalha(SOUTH)((2*COUNTERS_SIZE-1) downto COUNTERS_SIZE) <= buf(CONV_INTEGER(first))((METADEFLIT+COUNTERS_SIZE-1) downto METADEFLIT); -- leitura do contador M
-                                buffCtrlFalha(SOUTH)((COUNTERS_SIZE-1) downto 0) <= buf(CONV_INTEGER(first))(COUNTERS_SIZE-1 downto 0); -- leitura do contador P
+                           when 7 => buffCtrlFalha(SOUTH)((3*COUNTERS_SIZE+1) downto 3*COUNTERS_SIZE) <= buf(to_integer(first))((METADEFLIT+1) downto METADEFLIT); -- leitura dos 2 bits que indicam falha que sera armazenado/atualizado na tabela de falhas
+                                buffCtrlFalha(SOUTH)((3*COUNTERS_SIZE-1) downto 2*COUNTERS_SIZE) <= buf(to_integer(first))(COUNTERS_SIZE-1 downto 0); -- leitura do contador N
+                           when 8 => buffCtrlFalha(SOUTH)((2*COUNTERS_SIZE-1) downto COUNTERS_SIZE) <= buf(to_integer(first))((METADEFLIT+COUNTERS_SIZE-1) downto METADEFLIT); -- leitura do contador M
+                                buffCtrlFalha(SOUTH)((COUNTERS_SIZE-1) downto 0) <= buf(to_integer(first))(COUNTERS_SIZE-1 downto 0); -- leitura do contador P
 
                            when others => null;
                         end case;
@@ -573,25 +572,25 @@ end process;
                            case (indexFlitCtrl) is
                               when 1 => c_Buffer <= address; -- neste quarto flit havera o endereco do roteador
 
-                              when 2 => c_Buffer((TAM_FLIT-1) downto METADEFLIT) <= CONV_STD_LOGIC_VECTOR(0,METADEFLIT-2) & c_TabelaFalhas(EAST)((3*COUNTERS_SIZE+1) downto 3*COUNTERS_SIZE);
-                                   c_Buffer((METADEFLIT-1) downto 0) <= CONV_STD_LOGIC_VECTOR(0,METADEFLIT-COUNTERS_SIZE) & c_TabelaFalhas(EAST)((3*COUNTERS_SIZE-1) downto 2*COUNTERS_SIZE);
-                              when 3 => c_Buffer((TAM_FLIT-1) downto METADEFLIT) <= CONV_STD_LOGIC_VECTOR(0,METADEFLIT-COUNTERS_SIZE) & c_TabelaFalhas(EAST)((2*COUNTERS_SIZE-1) downto COUNTERS_SIZE);
-                                   c_Buffer((METADEFLIT-1) downto 0) <= CONV_STD_LOGIC_VECTOR(0,METADEFLIT-COUNTERS_SIZE) & c_TabelaFalhas(EAST)((COUNTERS_SIZE-1) downto 0);
+                              when 2 => c_Buffer((TAM_FLIT-1) downto METADEFLIT) <= std_logic_vector(to_unsigned(0,METADEFLIT-2)) & c_TabelaFalhas(EAST)((3*COUNTERS_SIZE+1) downto 3*COUNTERS_SIZE);
+                                   c_Buffer((METADEFLIT-1) downto 0) <= std_logic_vector(to_unsigned(0,METADEFLIT-COUNTERS_SIZE)) & c_TabelaFalhas(EAST)((3*COUNTERS_SIZE-1) downto 2*COUNTERS_SIZE);
+                              when 3 => c_Buffer((TAM_FLIT-1) downto METADEFLIT) <= std_logic_vector(to_unsigned(0,METADEFLIT-COUNTERS_SIZE)) & c_TabelaFalhas(EAST)((2*COUNTERS_SIZE-1) downto COUNTERS_SIZE);
+                                   c_Buffer((METADEFLIT-1) downto 0) <= std_logic_vector(to_unsigned(0,METADEFLIT-COUNTERS_SIZE)) & c_TabelaFalhas(EAST)((COUNTERS_SIZE-1) downto 0);
 
-                              when 4 => c_Buffer((TAM_FLIT-1) downto METADEFLIT) <= CONV_STD_LOGIC_VECTOR(0,METADEFLIT-2) & c_TabelaFalhas(WEST)((3*COUNTERS_SIZE+1) downto 3*COUNTERS_SIZE);
-                                   c_Buffer((METADEFLIT-1) downto 0) <= CONV_STD_LOGIC_VECTOR(0,METADEFLIT-COUNTERS_SIZE) & c_TabelaFalhas(WEST)((3*COUNTERS_SIZE-1) downto 2*COUNTERS_SIZE);
-                              when 5 => c_Buffer((TAM_FLIT-1) downto METADEFLIT) <= CONV_STD_LOGIC_VECTOR(0,METADEFLIT-COUNTERS_SIZE) & c_TabelaFalhas(WEST)((2*COUNTERS_SIZE-1) downto COUNTERS_SIZE);
-                                   c_Buffer((METADEFLIT-1) downto 0) <= CONV_STD_LOGIC_VECTOR(0,METADEFLIT-COUNTERS_SIZE) & c_TabelaFalhas(WEST)((COUNTERS_SIZE-1) downto 0);
+                              when 4 => c_Buffer((TAM_FLIT-1) downto METADEFLIT) <= std_logic_vector(to_unsigned(0,METADEFLIT-2)) & c_TabelaFalhas(WEST)((3*COUNTERS_SIZE+1) downto 3*COUNTERS_SIZE);
+                                   c_Buffer((METADEFLIT-1) downto 0) <= std_logic_vector(to_unsigned(0,METADEFLIT-COUNTERS_SIZE)) & c_TabelaFalhas(WEST)((3*COUNTERS_SIZE-1) downto 2*COUNTERS_SIZE);
+                              when 5 => c_Buffer((TAM_FLIT-1) downto METADEFLIT) <= std_logic_vector(to_unsigned(0,METADEFLIT-COUNTERS_SIZE)) & c_TabelaFalhas(WEST)((2*COUNTERS_SIZE-1) downto COUNTERS_SIZE);
+                                   c_Buffer((METADEFLIT-1) downto 0) <= std_logic_vector(to_unsigned(0,METADEFLIT-COUNTERS_SIZE)) & c_TabelaFalhas(WEST)((COUNTERS_SIZE-1) downto 0);
 
-                              when 6 => c_Buffer((TAM_FLIT-1) downto METADEFLIT) <= CONV_STD_LOGIC_VECTOR(0,METADEFLIT-2) & c_TabelaFalhas(NORTH)((3*COUNTERS_SIZE+1) downto 3*COUNTERS_SIZE);
-                                   c_Buffer((METADEFLIT-1) downto 0) <= CONV_STD_LOGIC_VECTOR(0,METADEFLIT-COUNTERS_SIZE) & c_TabelaFalhas(NORTH)((3*COUNTERS_SIZE-1) downto 2*COUNTERS_SIZE);
-                              when 7 => c_Buffer((TAM_FLIT-1) downto METADEFLIT) <= CONV_STD_LOGIC_VECTOR(0,METADEFLIT-COUNTERS_SIZE) & c_TabelaFalhas(NORTH)((2*COUNTERS_SIZE-1) downto COUNTERS_SIZE);
-                                   c_Buffer((METADEFLIT-1) downto 0) <= CONV_STD_LOGIC_VECTOR(0,METADEFLIT-COUNTERS_SIZE) & c_TabelaFalhas(NORTH)((COUNTERS_SIZE-1) downto 0);
+                              when 6 => c_Buffer((TAM_FLIT-1) downto METADEFLIT) <= std_logic_vector(to_unsigned(0,METADEFLIT-2)) & c_TabelaFalhas(NORTH)((3*COUNTERS_SIZE+1) downto 3*COUNTERS_SIZE);
+                                   c_Buffer((METADEFLIT-1) downto 0) <= std_logic_vector(to_unsigned(0,METADEFLIT-COUNTERS_SIZE)) & c_TabelaFalhas(NORTH)((3*COUNTERS_SIZE-1) downto 2*COUNTERS_SIZE);
+                              when 7 => c_Buffer((TAM_FLIT-1) downto METADEFLIT) <= std_logic_vector(to_unsigned(0,METADEFLIT-COUNTERS_SIZE)) & c_TabelaFalhas(NORTH)((2*COUNTERS_SIZE-1) downto COUNTERS_SIZE);
+                                   c_Buffer((METADEFLIT-1) downto 0) <= std_logic_vector(to_unsigned(0,METADEFLIT-COUNTERS_SIZE)) & c_TabelaFalhas(NORTH)((COUNTERS_SIZE-1) downto 0);
 
-                              when 8 => c_Buffer((TAM_FLIT-1) downto METADEFLIT) <= CONV_STD_LOGIC_VECTOR(0,METADEFLIT-2) & c_TabelaFalhas(SOUTH)((3*COUNTERS_SIZE+1) downto 3*COUNTERS_SIZE);
-                                   c_Buffer((METADEFLIT-1) downto 0) <= CONV_STD_LOGIC_VECTOR(0,METADEFLIT-COUNTERS_SIZE) & c_TabelaFalhas(SOUTH)((3*COUNTERS_SIZE-1) downto 2*COUNTERS_SIZE);
-                              when 9 => c_Buffer((TAM_FLIT-1) downto METADEFLIT) <= CONV_STD_LOGIC_VECTOR(0,METADEFLIT-COUNTERS_SIZE) & c_TabelaFalhas(SOUTH)((2*COUNTERS_SIZE-1) downto COUNTERS_SIZE);
-                                   c_Buffer((METADEFLIT-1) downto 0) <= CONV_STD_LOGIC_VECTOR(0,METADEFLIT-COUNTERS_SIZE) & c_TabelaFalhas(SOUTH)((COUNTERS_SIZE-1) downto 0);
+                              when 8 => c_Buffer((TAM_FLIT-1) downto METADEFLIT) <= std_logic_vector(to_unsigned(0,METADEFLIT-2)) & c_TabelaFalhas(SOUTH)((3*COUNTERS_SIZE+1) downto 3*COUNTERS_SIZE);
+                                   c_Buffer((METADEFLIT-1) downto 0) <= std_logic_vector(to_unsigned(0,METADEFLIT-COUNTERS_SIZE)) & c_TabelaFalhas(SOUTH)((3*COUNTERS_SIZE-1) downto 2*COUNTERS_SIZE);
+                              when 9 => c_Buffer((TAM_FLIT-1) downto METADEFLIT) <= std_logic_vector(to_unsigned(0,METADEFLIT-COUNTERS_SIZE)) & c_TabelaFalhas(SOUTH)((2*COUNTERS_SIZE-1) downto COUNTERS_SIZE);
+                                   c_Buffer((METADEFLIT-1) downto 0) <= std_logic_vector(to_unsigned(0,METADEFLIT-COUNTERS_SIZE)) & c_TabelaFalhas(SOUTH)((COUNTERS_SIZE-1) downto 0);
 
                               when others => null;
                            end case;
@@ -647,7 +646,7 @@ end process;
    ------------New Hardware------------
    c_ctrl <= eh_controle;
    c_buffCtrlOut <= buffCtrl;
-   c_codigoCtrl <= codigoControl;
+   c_codigoCtrl <= std_logic_vector(codigoControl);
    c_buffCtrlFalha <= buffCtrlFalha;
    c_ceTF_out <= ceTF_out;
    c_strLinkTst <= c_strLinkTstLocal;
