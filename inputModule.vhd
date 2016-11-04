@@ -2,7 +2,7 @@ library IEEE;
 use IEEE.std_logic_1164.all;
 use ieee.numeric_std.all;
 use STD.textio.all;
-use work.PhoenixPackage.all;
+use work.NoCPackage.all;
 
 entity inputModule is
 generic(

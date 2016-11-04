@@ -1,7 +1,7 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.all;
 use work.HammingPack16.all;
-use work.PhoenixPackage.all;
+use work.NoCPackage.all;
 
 entity HAM_ENC is
 port

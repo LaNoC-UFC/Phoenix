@@ -1,8 +1,8 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.all;
-use work.PhoenixPackage.all;
-use work.HammingPack16.all;
 use ieee.numeric_std.all;
+use work.HammingPack16.all;
+use work.NoCPackage.all;
 
 entity SwitchControl is
     generic(address : regflit := (others=>'0'));

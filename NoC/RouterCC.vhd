@@ -40,11 +40,11 @@
 ---------------------------------------------------------------------------------------
 library IEEE;
 use IEEE.std_logic_1164.all;
-use work.PhoenixPackage.all;
-use work.HammingPack16.all;
-use STD.textio.all;
 use ieee.numeric_std.all;
 USE ieee.math_real.ALL;   -- for UNIFORM, TRUNC functions
+use STD.textio.all;
+use work.HammingPack16.all;
+use work.NoCPackage.all;
 
 entity RouterCC is
 generic( address: regflit);

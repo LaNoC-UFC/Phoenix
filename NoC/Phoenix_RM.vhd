@@ -4,7 +4,7 @@
 library IEEE;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
-use work.PhoenixPackage.all;
+use work.NoCPackage.all;
 use work.TablePackage.all;
 
 entity routingMechanism is
