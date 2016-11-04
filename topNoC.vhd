@@ -1,9 +1,9 @@
 library IEEE;
 use IEEE.std_logic_1164.all;
-use work.PhoenixPackage.all;
 use IEEE.std_logic_textio.all;
-use STD.textio.all;
 use IEEE.numeric_std.all;
+use STD.textio.all;
+use work.NoCPackage.all;
 
 entity topNoC is
 end;

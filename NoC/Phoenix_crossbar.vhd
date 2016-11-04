@@ -13,8 +13,8 @@
 
 library IEEE;
 use IEEE.std_logic_1164.all;
-use work.PhoenixPackage.all;
 use ieee.numeric_std.all;
+use work.NoCPackage.all;
 
 entity Phoenix_crossbar is
 port(

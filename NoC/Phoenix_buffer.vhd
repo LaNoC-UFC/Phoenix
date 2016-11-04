@@ -28,10 +28,10 @@
 ---------------------------------------------------------------------------------------
 library IEEE;
 use IEEE.std_logic_1164.all;
-use work.PhoenixPackage.all;
-use work.HammingPack16.all;
 use ieee.numeric_std.all;
 use STD.textio.all;
+use work.HammingPack16.all;
+use work.NoCPackage.all;
 
 -- interface da Phoenix_buffer
 entity Phoenix_buffer is

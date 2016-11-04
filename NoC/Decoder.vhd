@@ -2,7 +2,7 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.all;
 use IEEE.Numeric_std.all;
 use work.HammingPack16.all;
-use work.PhoenixPackage.all;
+use work.NoCPackage.all;
 
 entity HAM_DEC is
 port

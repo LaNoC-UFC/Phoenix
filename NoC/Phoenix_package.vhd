@@ -5,7 +5,7 @@ library IEEE;
 use IEEE.Std_Logic_1164.all;
 use ieee.numeric_std.all;
 
-package PhoenixPackage is
+package NoCPackage is
 
 -----------------------------------------------------------------------
 -- OCP PARAMETERS
@@ -124,9 +124,9 @@ package PhoenixPackage is
     function ADDRESS_FROM_INDEX(index : integer) return regflit;
     function OR_REDUCTION(arrayN : std_logic_vector ) return boolean;
 
-end PhoenixPackage;
+end NoCPackage;
 
-package body PhoenixPackage is
+package body NoCPackage is
 
     --
     -- dado o index do roteador retorna o endereço correspondente
@@ -329,4 +329,4 @@ package body PhoenixPackage is
     begin
         return unsigned(arrayN) /= 0;
     end OR_REDUCTION;
-end PhoenixPackage;
+end NoCPackage;

@@ -1,8 +1,9 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.all;
-use work.PhoenixPackage.regNport;
-use work.HammingPack16.all;
 use ieee.numeric_std.all;
+use work.HammingPack16.all;
+use work.NoCPackage.regNport;
+
 
 entity FPPM is
 port
