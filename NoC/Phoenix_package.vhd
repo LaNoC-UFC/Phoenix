@@ -3,8 +3,7 @@
 --------------------------------------------------------------------------
 library IEEE;
 use IEEE.Std_Logic_1164.all;
-use IEEE.std_logic_unsigned.all;
-use IEEE.std_logic_arith.conv_std_logic_vector;
+use ieee.numeric_std.all;
 
 package PhoenixPackage is
 
@@ -113,7 +112,7 @@ package PhoenixPackage is
 ---------------------------------------------------------
 -- FUNCOES TB
 ---------------------------------------------------------
-    function CONV_VECTOR( letra : string(1 to TAM_LINHA);  pos: integer ) return std_logic_vector;
+    function CONV_VECTOR( letra : string(1 to TAM_LINHA);  pos: integer ) return unsigned;
     function CONV_HEX( int : integer ) return string;
     function CONV_STRING_4BITS( dado : std_logic_vector(3 downto 0)) return string;
     function CONV_STRING_8BITS( dado : std_logic_vector(7 downto 0)) return string;
@@ -136,8 +135,8 @@ package body PhoenixPackage is
         variable addrX, addrY: regmetadeflit;
         variable addr: regflit;
     begin
-        addrX := CONV_STD_LOGIC_VECTOR(index/NUM_Y, METADEFLIT);
-        addrY := CONV_STD_LOGIC_VECTOR(index mod NUM_Y, METADEFLIT);
+        addrX := std_logic_vector(to_unsigned(index/NUM_Y, METADEFLIT));
+        addrY := std_logic_vector(to_unsigned(index mod NUM_Y, METADEFLIT));
         addr := addrX & addrY;
         return addr;
     end ADDRESS_FROM_INDEX;
@@ -146,8 +145,8 @@ package body PhoenixPackage is
         variable number: integer := 0;
         alias addrX is address(TAM_FLIT-1 downto METADEFLIT);
         alias addrY is address(METADEFLIT-1 downto 0);
-        variable X : integer := CONV_INTEGER(addrX);
-        variable Y : integer := CONV_INTEGER(addrY);
+        variable X : integer := to_integer(unsigned(addrX));
+        variable Y : integer := to_integer(unsigned(addrY));
     begin
         number := X*NUM_Y + Y;
         return number;
@@ -177,8 +176,8 @@ package body PhoenixPackage is
     --
     -- converte um caracter de uma dada linha em um std_logic_vector
     --
-    function CONV_VECTOR( letra:string(1 to TAM_LINHA);  pos: integer ) return std_logic_vector is
-        variable bin: std_logic_vector(3 downto 0);
+    function CONV_VECTOR( letra:string(1 to TAM_LINHA);  pos: integer ) return unsigned is
+        variable bin: unsigned(3 downto 0);
     begin
         case (letra(pos)) is
             when '0' => bin := "0000";
@@ -231,7 +230,7 @@ package body PhoenixPackage is
     function CONV_STRING_4BITS(dado : std_logic_vector(3 downto 0)) return string is
         variable str: string(1 to 1);
     begin
-        str := CONV_HEX(CONV_INTEGER(dado));
+        str := CONV_HEX(to_integer(unsigned(dado)));
         return str;
     end CONV_STRING_4BITS;
 
@@ -328,6 +327,6 @@ package body PhoenixPackage is
     --
     function OR_REDUCTION( arrayN: in std_logic_vector ) return boolean is
     begin
-        return arrayN /= 0;
+        return unsigned(arrayN) /= 0;
     end OR_REDUCTION;
 end PhoenixPackage;

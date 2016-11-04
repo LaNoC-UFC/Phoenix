@@ -1,10 +1,8 @@
 library IEEE;
 use IEEE.std_logic_1164.all;
-use IEEE.std_logic_unsigned.all;
 use work.PhoenixPackage.all;
 use work.HammingPack16.all;
 use STD.textio.all;
-use ieee.std_logic_arith.all;
 use ieee.numeric_std.all;
 USE ieee.math_real.ALL;
 

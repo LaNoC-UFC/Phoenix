@@ -1,9 +1,8 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.all;
-use IEEE.STD_LOGIC_unsigned.all;
 use work.PhoenixPackage.regNport;
 use work.HammingPack16.all;
-
+use ieee.numeric_std.all;
 
 entity FPPM is
 port
@@ -32,8 +31,8 @@ begin
       process(clock, reset_in)
          variable counter_write: integer range 0 to COUNTER_UPDATE_TABLE;
          variable reset: std_logic := '0';
-         variable counter_N, counter_M, counter_P: std_logic_vector((COUNTERS_SIZE-1) downto 0);
-         variable link_status: std_logic_vector(1 downto 0) := "00";
+         variable counter_N, counter_M, counter_P: unsigned((COUNTERS_SIZE-1) downto 0);
+         variable link_status: unsigned(1 downto 0) := "00";
       begin
 
          if (reset_in='1') then
@@ -86,7 +85,7 @@ begin
             if (counter_write = COUNTER_UPDATE_TABLE) then
             --if (false) then
                write_FaultTable(i) <= '1';
-               row_FaultTablePorts_out(i) <= link_status & counter_N & counter_M & counter_P;
+               row_FaultTablePorts_out(i) <= std_logic_vector(link_status & counter_N & counter_M & counter_P);
                counter_write := 0;
             else
                write_FaultTable(i) <= '0';

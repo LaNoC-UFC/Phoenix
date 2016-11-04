@@ -1,10 +1,9 @@
 library IEEE;
 use IEEE.std_logic_1164.all;
-use ieee.std_logic_arith.CONV_STD_LOGIC_VECTOR;
 use work.PhoenixPackage.all;
 use IEEE.std_logic_textio.all;
 use STD.textio.all;
-use IEEE.std_logic_unsigned.all;
+use IEEE.numeric_std.all;
 
 entity topNoC is
 end;
@@ -17,7 +16,7 @@ architecture topNoC of topNoC is
     signal rx, credit_o: regNrot;
     signal clock_tx, tx, credit_i, testLink_i, testLink_o: regNrot;
     signal data_in, data_out : arrayNrot_regflit;
-    signal currentTime: std_logic_vector(4*TAM_FLIT-1 downto 0) := (others=>'0');
+    signal currentTime: unsigned(4*TAM_FLIT-1 downto 0) := (others=>'0');
 
 begin
     reset <= '1', '0' after CLOCK_PERIOD/2;

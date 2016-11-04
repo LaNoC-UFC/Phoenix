@@ -1,6 +1,5 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.all;
-use IEEE.STD_LOGIC_unsigned.all;
 use IEEE.Numeric_std.all;
 use work.HammingPack16.all;
 use work.PhoenixPackage.all;
@@ -43,7 +42,7 @@ begin
       Synd(5) := xor_reduce((data_in and MaskP16) & parity_in(5));
       ----------------------------------------------------------------
 
-   if (Synd = "0000") and (P0 = '0') then  --no errors
+   if (Synd = "00000") and (P0 = '0') then  --no errors
 
       credit_out <= NE;
       data_out <= data_in;

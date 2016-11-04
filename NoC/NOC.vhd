@@ -1,9 +1,8 @@
 library IEEE;
 use IEEE.std_logic_1164.all;
-use IEEE.std_logic_unsigned.all;
 use work.PhoenixPackage.all;
 use work.HammingPack16.all;
-use ieee.std_logic_arith.CONV_STD_LOGIC_VECTOR;
+use ieee.numeric_std.all;
 
 entity NOC is
 port(
@@ -30,7 +29,7 @@ begin
 
     fillLocalFlits: for i in 0 to NROT-1 generate
     begin
-        data_inLocal(i)         <= data_inLocal_flit(i) & CONV_STD_LOGIC_VECTOR(0,TAM_HAMM);
+        data_inLocal(i)         <= data_inLocal_flit(i) & std_logic_vector(to_unsigned(0,TAM_HAMM));
         data_outLocal_flit(i)   <= data_outLocal(i)(TAM_PHIT-1 downto TAM_HAMM);
     end generate;
 
