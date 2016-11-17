@@ -2,12 +2,15 @@ library IEEE;
 use IEEE.std_logic_1164.all;
 use ieee.numeric_std.all;
 use work.NoCPackage.all;
+use work.HammingPack16.all;
 
 entity phoenix_buffer_test is
 end;
 
 architecture happy_path of phoenix_buffer_test is
 
+    constant PACKAGE_SIZE: integer := TAM_BUFFER-1;
+    constant PAYLOAD_SIZE: integer := PACKAGE_SIZE-2;
     signal clock:          std_logic := '0';
     signal reset:          std_logic;
     signal rx:             std_logic;
@@ -57,7 +60,7 @@ begin
     process
     begin
         rx <= '0';
-        data_in <= to_unsigned(30, data_in'length);
+        data_in <= to_unsigned(PAYLOAD_SIZE, data_in'length);
         ack_h <= '0';
         data_ack <= '0';
         wait until reset = '0';
@@ -94,7 +97,6 @@ begin
             assert sender = '1' report "Buffer should been sending" severity failure;
         end loop;
         wait_clock_tick;
-        wait until sender'stable;
         assert data_av = '0' report "Buffer shouldn't have no more data" severity failure;
         assert sender = '0' report "Buffer shouldn't been sending any more" severity failure;
         assert credit_o = '1' report "Buffer should be empty" severity failure;
@@ -103,3 +105,126 @@ begin
     end process;
 
 end happy_path;
+
+architecture data_input_test of phoenix_buffer_test is
+
+    constant PACKAGE_SIZE: integer := TAM_BUFFER-1;
+    constant PAYLOAD_SIZE: integer := PACKAGE_SIZE-2;
+    signal clock:          std_logic := '0';
+    signal reset:          std_logic;
+    signal rx:             std_logic;
+    signal data_in:        unsigned((TAM_FLIT-1) downto 0);
+    signal data: regflit;
+    signal credit_o:       std_logic;
+    signal h, ack_h, data_av, data_ack, sender: std_logic;
+    signal statusHamming: reg3;
+    signal c_strLinkTstAll, c_strLinkTstNeighbor, retransmission_out: std_logic;
+
+    procedure wait_clock_tick is
+    begin
+        wait until rising_edge(clock);
+    end wait_clock_tick;
+
+begin
+    reset <= '1', '0' after CLOCK_PERIOD/4;
+    clock <= not clock after CLOCK_PERIOD/2;
+
+    UUT : entity work.Phoenix_buffer
+    generic map(
+        address => ADDRESS_FROM_INDEX(0),
+        bufLocation => EAST)
+    port map(
+        clock => clock,
+        reset => reset,
+        clock_rx => clock,
+        rx => rx,
+        data_in => data_in,
+        credit_o => credit_o,
+        h => h,
+        ack_h => ack_h,
+        data_av => data_av,
+        data => data,
+        data_ack => data_ack,
+        sender => sender,
+
+        c_error_find => validRegion,
+        c_error_dir => (others=>'0'),
+        c_tabelaFalhas => (others=>(others=>'0')),
+        c_strLinkTstOthers => '0',
+        c_strLinkTstNeighbor => c_strLinkTstNeighbor,
+        c_strLinkTstAll => c_strLinkTstAll,
+        c_stpLinkTst => '0',
+        retransmission_in => '0',
+        statusHamming => statusHamming,
+        retransmission_out => retransmission_out
+    );
+
+    process
+    begin
+        rx <= '0';
+        data_in <= to_unsigned(PAYLOAD_SIZE, data_in'length);
+        ack_h <= '0';
+        data_ack <= '0';
+        c_strLinkTstNeighbor <= '0';
+        c_strLinkTstAll <= '0';
+        statusHamming <= NE;
+        wait until reset = '0';
+        assert credit_o = '1' report "Buffer should be empty after reset" severity failure;
+        assert h = '0' report "No routing request should be made before there's data" severity failure;
+        assert data_av = '0' report "Buffer shouldn't have data" severity failure;
+        assert sender = '0' report "Buffer shouldn't been sending" severity failure;
+        assert retransmission_out = '0' report "Buffer shouldn't been requesting retransmission" severity failure;
+        wait_clock_tick;
+        -- fill it almost completely
+        rx <= '1';
+        for i in 1 to PACKAGE_SIZE-2 loop
+            wait_clock_tick;
+            assert credit_o = '1' report "Buffer should have space left " & integer'image(i) severity failure;
+            assert data_av = '0' report "Buffer shouldn't have data" severity failure;
+            assert sender = '0' report "Buffer shouldn't been sending" severity failure;
+        end loop;
+        wait_clock_tick;
+        assert credit_o = '1' report "Buffer should have one space left" severity failure;
+        -- signal router testing its links
+        c_strLinkTstAll <= '1';
+        wait_clock_tick;
+        assert credit_o = '1' report "Buffer shouldn't accept test flits" severity failure;
+        c_strLinkTstAll <= '0';
+        -- signal neighbor testing that channel
+        c_strLinkTstNeighbor <= '1';
+        wait_clock_tick;
+        assert credit_o = '1' report "Buffer shouldn't accept test flits" severity failure;
+        c_strLinkTstNeighbor <= '0';
+        -- signal non recovered flit
+        statusHamming <= ED;
+        wait_clock_tick;
+        assert credit_o = '1' report "Buffer shouldn't accept faulty flits" severity failure;
+        assert retransmission_out = '1' report "Buffer should request retransmission" severity failure;
+        -- signal recovered flit (fill it)
+        statusHamming <= EC;
+        wait_clock_tick;
+        wait until credit_o'stable;
+        assert credit_o = '0' report "Buffer should accept corrected flits" severity failure;
+        assert retransmission_out = '0' report "Buffer shouldn'd request retransmission" severity failure;
+        -- empty it
+        rx <= '0';
+        ack_h <= '1';
+        wait_clock_tick;
+        wait until data_av'stable;
+        ack_h <= '0';
+        data_ack <= '1';
+        assert data_av = '1' report "Buffer should have data" severity failure;
+        assert sender = '1' report "Buffer should been sending" severity failure;
+        for i in 1 to PACKAGE_SIZE loop
+            wait_clock_tick;
+        end loop;
+        assert data = std_logic_vector(to_unsigned(PAYLOAD_SIZE+1, data'length)) report "Last flit should be increased" severity failure;
+        wait_clock_tick;
+        assert h = '0' report "No routing request should be made before there's data" severity failure;
+        assert data_av = '0' report "Buffer shouldn't have data" severity failure;
+        assert sender = '0' report "Buffer shouldn't been sending" severity failure;
+        --
+        wait;
+    end process;
+
+end data_input_test;

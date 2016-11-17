@@ -19,3 +19,5 @@ vsim work.fault_injector_test
 run 1 ms; exit -sim
 vsim work.phoenix_buffer_test(happy_path)
 run 1 ms; exit -sim
+vsim work.phoenix_buffer_test(data_input_test)
+run 1 ms; exit -sim
