@@ -228,3 +228,112 @@ begin
     end process;
 
 end data_input_test;
+
+architecture data_output_test of phoenix_buffer_test is
+
+    constant PACKAGE_SIZE: integer := TAM_BUFFER-1;
+    constant PAYLOAD_SIZE: integer := PACKAGE_SIZE-2;
+    signal clock:          std_logic := '0';
+    signal reset:          std_logic;
+    signal rx:             std_logic;
+    signal data_in:        unsigned((TAM_FLIT-1) downto 0);
+    signal data: regflit;
+    signal credit_o:       std_logic;
+    signal h, ack_h, data_av, data_ack, sender: std_logic;
+    signal retransmission_in: std_logic;
+
+    procedure wait_clock_tick is
+    begin
+        wait until rising_edge(clock);
+    end wait_clock_tick;
+
+begin
+    reset <= '1', '0' after CLOCK_PERIOD/4;
+    clock <= not clock after CLOCK_PERIOD/2;
+
+    UUT : entity work.Phoenix_buffer
+    generic map(
+        address => ADDRESS_FROM_INDEX(0),
+        bufLocation => EAST)
+    port map(
+        clock => clock,
+        reset => reset,
+        clock_rx => clock,
+        rx => rx,
+        data_in => data_in,
+        credit_o => credit_o,
+        h => h,
+        ack_h => ack_h,
+        data_av => data_av,
+        data => data,
+        data_ack => data_ack,
+        sender => sender,
+
+        c_error_find => validRegion,
+        c_error_dir => (others=>'0'),
+        c_tabelaFalhas => (others=>(others=>'0')),
+        c_strLinkTstOthers => '0',
+        c_strLinkTstNeighbor => '0',
+        c_strLinkTstAll => '0',
+        c_stpLinkTst => '0',
+        retransmission_in => retransmission_in,
+        statusHamming => NE
+    );
+
+    process
+    begin
+        rx <= '0';
+        data_in <= to_unsigned(PAYLOAD_SIZE, data_in'length);
+        ack_h <= '0';
+        data_ack <= '0';
+        retransmission_in <= '0';
+        wait until reset = '0';
+        wait_clock_tick;
+        -- push the package head (destination) only
+        rx <= '1';
+        wait_clock_tick;
+        rx <= '0';
+        assert credit_o = '1' report "Buffer should have space left" severity failure;
+        -- route the package
+        wait until h = '1';
+        wait_clock_tick;
+        ack_h <= '1';
+        wait_clock_tick;
+        wait until h'stable;
+        assert h = '0' report "Request was already been answered" severity failure;
+        assert data_av = '1' report "There should be data available" severity failure;
+        assert sender = '1' report "Buffer should been sending" severity failure;
+        ack_h <= '0';
+        -- request retransmission of the package header
+        data_ack <= '1';
+        retransmission_in <= '1';
+        wait_clock_tick;
+        assert data_av = '1' report "There should be data available" severity failure;
+        -- accept the package header
+        retransmission_in <= '0';
+        wait_clock_tick;
+        wait until data_av'stable;
+        assert data_av = '0' report "There should be no data available" severity failure;
+        data_ack <= '0';
+        -- push one more flit (package size)
+        rx <= '1';
+        wait_clock_tick;
+        wait until data_av'stable;
+        assert data_av = '1' report "There should be data available" severity failure;
+        rx <= '0';
+        -- request retransmission of the package size
+        data_ack <= '1';
+        retransmission_in <= '1';
+        wait_clock_tick;
+        assert data_av = '1' report "There should be data available" severity failure;
+        -- accept the package size
+        retransmission_in <= '0';
+        wait_clock_tick;
+        wait until data_av'stable;
+        assert data_av = '0' report "There should be no data available" severity failure;
+        data_ack <= '0';
+        --
+        wait;
+    end process;
+
+end data_output_test;
