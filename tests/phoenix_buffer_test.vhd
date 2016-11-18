@@ -426,3 +426,124 @@ begin
     end process;
 
 end empty_buffer_test;
+
+architecture test_link_ctrl_pkg_test of phoenix_buffer_test is
+
+    constant PACKAGE_SIZE: integer := 3;
+    constant PAYLOAD_SIZE: integer := PACKAGE_SIZE-2;
+    constant ANY_NUMBER_OF_CYCLES: integer := 3;
+    signal clock:          std_logic := '0';
+    signal reset:          std_logic;
+    signal rx:             std_logic;
+    signal data_in:        unsigned((TAM_FLIT-1) downto 0);
+    signal data: regflit;
+    signal credit_o:       std_logic;
+    signal h, ack_h, data_av, data_ack, sender: std_logic;
+    signal c_strLinkTst, c_stpLinkTst, c_strLinkTstOthers: std_logic;
+
+    procedure wait_clock_tick is
+    begin
+        wait until rising_edge(clock);
+    end wait_clock_tick;
+
+begin
+    reset <= '1', '0' after CLOCK_PERIOD/4;
+    clock <= not clock after CLOCK_PERIOD/2;
+
+    UUT : entity work.Phoenix_buffer
+    generic map(
+        address => ADDRESS_FROM_INDEX(0),
+        bufLocation => LOCAL)
+    port map(
+        clock => clock,
+        reset => reset,
+        clock_rx => clock,
+        rx => rx,
+        data_in => data_in,
+        credit_o => credit_o,
+        h => h,
+        ack_h => ack_h,
+        data_av => data_av,
+        data => data,
+        data_ack => data_ack,
+        sender => sender,
+
+        c_error_find => validRegion,
+        c_error_dir => (others=>'0'),
+        c_tabelaFalhas => (others=>(others=>'0')),
+        c_strLinkTstOthers => c_strLinkTstOthers,
+        c_strLinkTstNeighbor => '0',
+        c_strLinkTstAll => '0',
+        c_stpLinkTst => c_stpLinkTst,
+        retransmission_in => '0',
+        statusHamming => (others=>'0'),
+        c_strLinkTst => c_strLinkTst
+    );
+
+    process
+    begin
+        rx <= '0';
+        data_in <= (others=>'0');
+        ack_h <= '0';
+        data_ack <= '0';
+        c_stpLinkTst <= '0';
+        c_strLinkTstOthers <= '0';
+        wait until reset = '0';
+        wait_clock_tick;
+        -- push the package head with control flag set
+        rx <= '1';
+        data_in <= '1' & unsigned(ADDRESS_FROM_INDEX(0)(data_in'high-1 downto 0));
+        wait_clock_tick;
+        -- push the package size
+        data_in <= to_unsigned(PAYLOAD_SIZE, data_in'length);
+        wait_clock_tick;
+        -- push the control code
+        data_in <= to_unsigned(c_TEST_LINKS, data_in'length);
+        wait_clock_tick;
+        rx <= '0';
+        assert c_strLinkTst = '0' report "No test was requested yet" severity failure;
+        -- verify request to test links
+        wait_clock_tick;
+        wait until c_strLinkTst'stable;
+        assert c_strLinkTst = '1' report "Test requested" severity failure;
+        for i in 1 to ANY_NUMBER_OF_CYCLES loop
+            wait_clock_tick;
+        end loop;
+        -- signal test finished
+        c_stpLinkTst <= '1';
+        wait_clock_tick;
+        wait until c_strLinkTst'stable;
+        assert c_strLinkTst = '0' report "No test is requested any more" severity failure;
+        c_stpLinkTst <= '0';
+        --
+        -- Someone else request a test on the links
+        --
+        wait_clock_tick;
+        c_strLinkTstOthers <= '1';
+        -- push the package head with control flag set
+        rx <= '1';
+        data_in <= '1' & unsigned(ADDRESS_FROM_INDEX(0)(data_in'high-1 downto 0));
+        wait_clock_tick;
+        -- push the package size
+        data_in <= to_unsigned(PAYLOAD_SIZE, data_in'length);
+        wait_clock_tick;
+        -- push the control code
+        data_in <= to_unsigned(c_TEST_LINKS, data_in'length);
+        wait_clock_tick;
+        rx <= '0';
+        assert c_strLinkTst = '0' report "No test was requested yet" severity failure;
+        -- verify request to test links
+        for i in 1 to ANY_NUMBER_OF_CYCLES loop
+            wait_clock_tick;
+            assert c_strLinkTst = '0' report "Test still not requested" severity failure;
+        end loop;
+        -- signal test finished
+        c_stpLinkTst <= '1';
+        wait_clock_tick;
+        assert c_strLinkTst = '0' report "And no request was made at all" severity failure;
+        c_stpLinkTst <= '0';
+        --
+        wait;
+    end process;
+
+end test_link_ctrl_pkg_test;
