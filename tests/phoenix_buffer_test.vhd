@@ -547,3 +547,107 @@ begin
     end process;
 
 end test_link_ctrl_pkg_test;
+
+-- reproduces bug (Issue #61)
+architecture no_ctrl_pkg_code_test of phoenix_buffer_test is
+
+    constant ANY_NUMBER_OF_CYCLES: integer := 10;
+    constant PACKAGE_SIZE: integer := TAM_BUFFER-1-1;
+    constant PAYLOAD_SIZE: integer := PACKAGE_SIZE-2;
+    signal clock:          std_logic := '0';
+    signal reset:          std_logic;
+    signal rx:             std_logic;
+    signal data_in:        unsigned((TAM_FLIT-1) downto 0);
+    signal data: regflit;
+    signal credit_o:       std_logic;
+    signal h, ack_h, data_av, data_ack, sender: std_logic;
+    signal c_ctrl, c_strLinkTst: std_logic;
+
+    procedure wait_clock_tick is
+    begin
+        wait until rising_edge(clock);
+    end wait_clock_tick;
+
+begin
+    reset <= '1', '0' after CLOCK_PERIOD/4;
+    clock <= not clock after CLOCK_PERIOD/2;
+
+    UUT : entity work.Phoenix_buffer
+    generic map(
+        address => ADDRESS_FROM_INDEX(0),
+        bufLocation => LOCAL)
+    port map(
+        clock => clock,
+        reset => reset,
+        clock_rx => clock,
+        rx => rx,
+        data_in => data_in,
+        credit_o => credit_o,
+        h => h,
+        ack_h => ack_h,
+        data_av => data_av,
+        data => data,
+        data_ack => data_ack,
+        sender => sender,
+
+        c_error_find => validRegion,
+        c_error_dir => (others=>'0'),
+        c_tabelaFalhas => (others=>(others=>'0')),
+        c_strLinkTstOthers => '0',
+        c_strLinkTstNeighbor => '0',
+        c_strLinkTstAll => '0',
+        c_stpLinkTst => '0',
+        retransmission_in => '0',
+        statusHamming => (others=>'0'),
+        c_ctrl => c_ctrl,
+        c_strLinkTst => c_strLinkTst
+    );
+
+    process
+    begin
+        rx <= '0';
+        data_in <= (others=>'0');
+        ack_h <= '0';
+        data_ack <= '0';
+        wait until reset = '0';
+        wait_clock_tick;
+        -- push the package head (will mimic c_TEST_LINKS)
+        rx <= '1';
+        data_in <= to_unsigned(c_TEST_LINKS, data_in'length);
+        wait_clock_tick;
+        -- push the package size
+        data_in <= to_unsigned(PAYLOAD_SIZE, data_in'length);
+        wait_clock_tick;
+        -- push the payload
+        for i in 1 to PAYLOAD_SIZE loop
+            wait_clock_tick;
+        end loop;
+        rx <= '0';
+        -- answer routing request
+        assert h = '1' report "A routing request should already been made" severity failure;
+        ack_h <= '1';
+        wait_clock_tick;
+        ack_h <= '0';
+        -- accept package (empty buffer)
+        data_ack <= '1';
+        wait until sender = '0';
+        -- push the package head with control flag set
+        data_in <= '1' & unsigned(ADDRESS_FROM_INDEX(0)(data_in'high-1 downto 0));
+        rx <= '1';
+        wait_clock_tick;
+        -- push the package size
+        data_in <= to_unsigned(1, data_in'length);
+        wait_clock_tick;
+        rx <= '0';
+        wait until c_ctrl'stable;
+        assert c_ctrl = '1' report "It is a control package" severity failure;
+        -- do not push control code
+        for i in 1 to ANY_NUMBER_OF_CYCLES loop
+            wait_clock_tick;
+            assert c_strLinkTst = '0' report "No test should be requested" severity failure;
+        end loop;
+        --
+        wait;
+    end process;
+
+end no_ctrl_pkg_code_test;

@@ -27,3 +27,5 @@ vsim work.phoenix_buffer_test(empty_buffer_test)
 run 1 ms; exit -sim
 vsim work.phoenix_buffer_test(test_link_ctrl_pkg_test)
 run 1 ms; exit -sim
+vsim work.phoenix_buffer_test(no_ctrl_pkg_code_test)
+run 1 ms; exit -sim
