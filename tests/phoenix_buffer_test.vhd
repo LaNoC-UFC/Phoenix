@@ -802,3 +802,99 @@ begin
     end process;
 
 end write_fault_table_ctrl_pkg_test;
+
+architecture write_routing_table_ctrl_pkg_test of phoenix_buffer_test is
+
+    constant PACKAGE_SIZE: integer := 7;
+    constant PAYLOAD_SIZE: integer := PACKAGE_SIZE-2;
+    signal clock:          std_logic := '0';
+    signal reset:          std_logic;
+    signal rx:             std_logic;
+    signal data_in:        unsigned((TAM_FLIT-1) downto 0);
+    signal data: regflit;
+    signal credit_o:       std_logic;
+    signal h, ack_h, data_av, data_ack, sender: std_logic;
+    signal c_buffCtrlOut: buffControl;
+    signal c_ctrl, c_chipETable: std_logic;
+
+    procedure wait_clock_tick is
+    begin
+        wait until rising_edge(clock);
+    end wait_clock_tick;
+
+begin
+    reset <= '1', '0' after CLOCK_PERIOD/4;
+    clock <= not clock after CLOCK_PERIOD/2;
+
+    UUT : entity work.Phoenix_buffer
+    generic map(
+        address => ADDRESS_FROM_INDEX(0),
+        bufLocation => LOCAL)
+    port map(
+        clock => clock,
+        reset => reset,
+        clock_rx => clock,
+        rx => rx,
+        data_in => data_in,
+        credit_o => credit_o,
+        h => h,
+        ack_h => ack_h,
+        data_av => data_av,
+        data => data,
+        data_ack => data_ack,
+        sender => sender,
+
+        c_error_find => validRegion,
+        c_error_dir => (others=>'0'),
+        c_tabelaFalhas => (others=>(others=>'0')),
+        c_strLinkTstOthers => '0',
+        c_strLinkTstNeighbor => '0',
+        c_strLinkTstAll => '0',
+        c_stpLinkTst => '0',
+        retransmission_in => '0',
+        statusHamming => (others=>'0'),
+        c_ctrl => c_ctrl,
+        c_buffCtrlOut => c_buffCtrlOut,
+        c_chipETable => c_chipETable
+    );
+
+    process
+    begin
+        rx <= '0';
+        data_in <= (others=>'0');
+        ack_h <= '0';
+        data_ack <= '0';
+        wait until reset = '0';
+        assert c_chipETable = '0' report "Signal write/update table" severity failure;
+        wait_clock_tick;
+        -- push the package head with control flag set
+        rx <= '1';
+        data_in <= '1' & unsigned(ADDRESS_FROM_INDEX(0)(data_in'high-1 downto 0));
+        wait_clock_tick;
+        wait until c_ctrl'stable;
+        assert c_ctrl = '1' report "It is a control package" severity failure;
+        -- push the package size
+        data_in <= to_unsigned(PAYLOAD_SIZE, data_in'length);
+        wait_clock_tick;
+        -- push the control code
+        data_in <= to_unsigned(c_WR_ROUT_TAB, data_in'length);
+        wait_clock_tick;
+        -- push the payload
+        for i in 1 to PAYLOAD_SIZE-1 loop
+            assert std_logic_vector(to_unsigned(0, data_in'length)) = c_buffCtrlOut(i-1) report "Initial value is zero" severity failure;
+            data_in <= unsigned(to_unsigned(i, data_in'length));
+            wait_clock_tick;
+            wait until c_buffCtrlOut'stable;
+            assert std_logic_vector(to_unsigned(i, data_in'length)) = c_buffCtrlOut(i-1) report "Value was registered" severity failure;
+        end loop;
+        rx <= '0';
+        wait until c_chipETable'stable;
+        assert c_chipETable = '1' report "Signal write/update routing table" severity failure;
+        wait_clock_tick;
+        wait until c_chipETable'stable;
+        assert c_chipETable = '0' report "Signal write/update routing table" severity failure;
+        --
+        wait;
+    end process;
+
+end write_routing_table_ctrl_pkg_test;

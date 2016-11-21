@@ -31,3 +31,5 @@ vsim work.phoenix_buffer_test(no_ctrl_pkg_code_test)
 run 1 ms; exit -sim
 vsim work.phoenix_buffer_test(write_fault_table_ctrl_pkg_test)
 run 1 ms; exit -sim
+vsim work.phoenix_buffer_test(write_routing_table_ctrl_pkg_test)
+run 1 ms; exit -sim
