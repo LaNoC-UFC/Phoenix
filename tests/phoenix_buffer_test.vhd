@@ -651,3 +651,154 @@ begin
     end process;
 
 end no_ctrl_pkg_code_test;
+
+architecture write_fault_table_ctrl_pkg_test of phoenix_buffer_test is
+
+    constant FAULTY_INDEX: std_logic_vector := "10";
+    constant FAULT_TENDENCY_INDEX: std_logic_vector := "01";
+    constant NO_FAULT_INDEX: std_logic_vector := "00";
+
+    constant PACKAGE_SIZE: integer := 11;
+    constant PAYLOAD_SIZE: integer := PACKAGE_SIZE-2;
+    signal clock:          std_logic := '0';
+    signal reset:          std_logic;
+    signal rx:             std_logic;
+    signal data_in:        unsigned((TAM_FLIT-1) downto 0);
+    signal data: regflit;
+    signal credit_o:       std_logic;
+    signal h, ack_h, data_av, data_ack, sender: std_logic;
+    signal c_buffCtrlFalha: row_FaultTable_Ports;
+    signal c_ctrl, c_ceTF_out: std_logic;
+
+    procedure wait_clock_tick is
+    begin
+        wait until rising_edge(clock);
+    end wait_clock_tick;
+
+    function index_n_counter_flit(
+        index : std_logic_vector(1 downto 0);
+        n : integer
+    ) return regflit is
+        variable result : regflit := (others=>'0');
+    begin
+        result((METADEFLIT+1) downto METADEFLIT) := index;
+        result(COUNTERS_SIZE-1 downto 0) := std_logic_vector(to_unsigned(n, COUNTERS_SIZE));
+        return result;
+    end index_n_counter_flit;
+
+    function m_counter_n_counter_flit(
+        m : integer;
+        p : integer
+    ) return regflit is
+        variable result : regflit := (others=>'0');
+    begin
+        result((METADEFLIT+COUNTERS_SIZE-1) downto METADEFLIT) := std_logic_vector(to_unsigned(m, COUNTERS_SIZE));
+        result(COUNTERS_SIZE-1 downto 0) := std_logic_vector(to_unsigned(p, COUNTERS_SIZE));
+        return result;
+    end m_counter_n_counter_flit;
+
+    function fault_row(
+        index : std_logic_vector(1 downto 0);
+        n : integer;
+        m : integer;
+        p : integer
+    ) return std_logic_vector is
+    begin
+        return index & std_logic_vector(to_unsigned(n, COUNTERS_SIZE))
+                    & std_logic_vector(to_unsigned(m, COUNTERS_SIZE))
+                    & std_logic_vector(to_unsigned(p, COUNTERS_SIZE));
+    end fault_row;
+
+begin
+    reset <= '1', '0' after CLOCK_PERIOD/4;
+    clock <= not clock after CLOCK_PERIOD/2;
+
+    UUT : entity work.Phoenix_buffer
+    generic map(
+        address => ADDRESS_FROM_INDEX(0),
+        bufLocation => LOCAL)
+    port map(
+        clock => clock,
+        reset => reset,
+        clock_rx => clock,
+        rx => rx,
+        data_in => data_in,
+        credit_o => credit_o,
+        h => h,
+        ack_h => ack_h,
+        data_av => data_av,
+        data => data,
+        data_ack => data_ack,
+        sender => sender,
+
+        c_error_find => validRegion,
+        c_error_dir => (others=>'0'),
+        c_tabelaFalhas => (others=>(others=>'0')),
+        c_strLinkTstOthers => '0',
+        c_strLinkTstNeighbor => '0',
+        c_strLinkTstAll => '0',
+        c_stpLinkTst => '0',
+        retransmission_in => '0',
+        statusHamming => (others=>'0'),
+        c_ctrl => c_ctrl,
+        c_buffCtrlFalha => c_buffCtrlFalha,
+        c_ceTF_out => c_ceTF_out
+    );
+
+    process
+        procedure check_write_check_falt_fault(
+            port_index : integer;
+            index : std_logic_vector(1 downto 0);
+            n : integer;
+            m : integer;
+            p : integer
+        ) is
+        begin
+            assert c_buffCtrlFalha(port_index) = std_logic_vector(to_unsigned(0, c_buffCtrlFalha(port_index)'length)) report "Initial value is 0" severity failure;
+            data_in <= unsigned(index_n_counter_flit(index, n));
+            wait_clock_tick;
+            data_in <= unsigned(m_counter_n_counter_flit(m, p));
+            wait_clock_tick;
+            wait until c_buffCtrlFalha'stable;
+            assert c_buffCtrlFalha(port_index) = fault_row(index, n, m, p) report "Final value was assigned" severity failure;
+        end check_write_check_falt_fault;
+    begin
+        rx <= '0';
+        data_in <= (others=>'0');
+        ack_h <= '0';
+        data_ack <= '0';
+        wait until reset = '0';
+        assert c_ceTF_out = '0' report "Signal write/update table" severity failure;
+        wait_clock_tick;
+        -- push the package head with control flag set
+        rx <= '1';
+        data_in <= '1' & unsigned(ADDRESS_FROM_INDEX(0)(data_in'high-1 downto 0));
+        wait_clock_tick;
+        wait until c_ctrl'stable;
+        assert c_ctrl = '1' report "It is a control package" severity failure;
+        -- push the package size
+        data_in <= to_unsigned(PAYLOAD_SIZE, data_in'length);
+        wait_clock_tick;
+        -- push the control code
+        data_in <= to_unsigned(c_WR_FAULT_TAB, data_in'length);
+        wait_clock_tick;
+        -- EAST
+        check_write_check_falt_fault(EAST, FAULTY_INDEX, 1, 2, 3);
+        -- WEST
+        check_write_check_falt_fault(WEST, FAULT_TENDENCY_INDEX, 4, 5, 6);
+        -- NORTH
+        check_write_check_falt_fault(NORTH, NO_FAULT_INDEX, 7, 8, 9);
+        -- SOUTH
+        check_write_check_falt_fault(SOUTH, NO_FAULT_INDEX, 10, 11, 12);
+        rx <= '0';
+        wait_clock_tick;
+        wait until c_ceTF_out'stable;
+        assert c_ceTF_out = '1' report "Signal write/update table" severity failure;
+        wait_clock_tick;
+        wait until c_ceTF_out'stable;
+        assert c_ceTF_out = '0' report "Signal write/update table" severity failure;
+        --
+        wait;
+    end process;
+
+end write_fault_table_ctrl_pkg_test;
