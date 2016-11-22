@@ -898,3 +898,150 @@ begin
     end process;
 
 end write_routing_table_ctrl_pkg_test;
+
+architecture read_fault_table_ctrl_pkg_test of phoenix_buffer_test is
+
+    constant FAULTY_INDEX: std_logic_vector := "10";
+    constant FAULT_TENDENCY_INDEX: std_logic_vector := "01";
+    constant NO_FAULT_INDEX: std_logic_vector := "00";
+
+    constant PACKAGE_SIZE: integer := 3;
+    constant PAYLOAD_SIZE: integer := PACKAGE_SIZE-2;
+    signal clock:          std_logic := '0';
+    signal reset:          std_logic;
+    signal rx:             std_logic;
+    signal data_in:        unsigned((TAM_FLIT-1) downto 0);
+    signal data: regflit;
+    signal credit_o:       std_logic;
+    signal h, ack_h, data_av, data_ack, sender: std_logic;
+    signal c_ctrl: std_logic;
+    signal c_tabelaFalhas: row_FaultTable_Ports;
+    constant SOME_FAULT_TABLE: row_FaultTable_Ports := (
+        (FAULTY_INDEX & std_logic_vector(to_unsigned(1, COUNTERS_SIZE) & to_unsigned(2, COUNTERS_SIZE) & to_unsigned(3, COUNTERS_SIZE))),
+        (FAULT_TENDENCY_INDEX & std_logic_vector(to_unsigned(4, COUNTERS_SIZE) & to_unsigned(5, COUNTERS_SIZE) & to_unsigned(6, COUNTERS_SIZE))),
+        (FAULTY_INDEX & std_logic_vector(to_unsigned(7, COUNTERS_SIZE) & to_unsigned(8, COUNTERS_SIZE) & to_unsigned(9, COUNTERS_SIZE))),
+        (NO_FAULT_INDEX & std_logic_vector(to_unsigned(10, COUNTERS_SIZE) & to_unsigned(11, COUNTERS_SIZE) & to_unsigned(12, COUNTERS_SIZE)))
+    );
+
+    procedure wait_clock_tick is
+    begin
+        wait until rising_edge(clock);
+    end wait_clock_tick;
+
+    function index_and_n_counter_flit(fault_row : row_FaultTable) return regflit is
+        variable result: regflit := (others=>'0');
+    begin
+        result((TAM_FLIT-1) downto METADEFLIT) := std_logic_vector(to_unsigned(0,METADEFLIT-2)) & fault_row((3*COUNTERS_SIZE+1) downto 3*COUNTERS_SIZE);
+        result((METADEFLIT-1) downto 0) := std_logic_vector(to_unsigned(0,METADEFLIT-COUNTERS_SIZE)) & fault_row((3*COUNTERS_SIZE-1) downto 2*COUNTERS_SIZE);
+        return result;
+    end index_and_n_counter_flit;
+
+    function m_and_p_counters_flit(fault_row : row_FaultTable) return regflit is
+        variable result: regflit := (others=>'0');
+    begin
+        result((TAM_FLIT-1) downto METADEFLIT) := std_logic_vector(to_unsigned(0,METADEFLIT-COUNTERS_SIZE)) & fault_row((2*COUNTERS_SIZE-1) downto COUNTERS_SIZE);
+        result((METADEFLIT-1) downto 0) := std_logic_vector(to_unsigned(0,METADEFLIT-COUNTERS_SIZE)) & fault_row((COUNTERS_SIZE-1) downto 0);
+        return result;
+    end m_and_p_counters_flit;
+
+begin
+    reset <= '1', '0' after CLOCK_PERIOD/4;
+    clock <= not clock after CLOCK_PERIOD/2;
+
+    UUT : entity work.Phoenix_buffer
+    generic map(
+        address => ADDRESS_FROM_INDEX(0),
+        bufLocation => LOCAL)
+    port map(
+        clock => clock,
+        reset => reset,
+        clock_rx => clock,
+        rx => rx,
+        data_in => data_in,
+        credit_o => credit_o,
+        h => h,
+        ack_h => ack_h,
+        data_av => data_av,
+        data => data,
+        data_ack => data_ack,
+        sender => sender,
+
+        c_error_find => validRegion,
+        c_error_dir => (others=>'0'),
+        c_tabelaFalhas => c_TabelaFalhas,
+        c_strLinkTstOthers => '0',
+        c_strLinkTstNeighbor => '0',
+        c_strLinkTstAll => '0',
+        c_stpLinkTst => '0',
+        retransmission_in => '0',
+        statusHamming => (others=>'0'),
+        c_ctrl => c_ctrl
+    );
+
+    process
+    begin
+        rx <= '0';
+        data_in <= (others=>'0');
+        ack_h <= '0';
+        data_ack <= '0';
+        c_tabelaFalhas <= SOME_FAULT_TABLE;
+        wait until reset = '0';
+        wait_clock_tick;
+        -- push the package head with control flag set
+        rx <= '1';
+        data_in <= '1' & unsigned(ADDRESS_FROM_INDEX(0)(data_in'high-1 downto 0));
+        wait_clock_tick;
+        wait until c_ctrl'stable;
+        assert c_ctrl = '1' report "It is a control package" severity failure;
+        -- push the package size
+        data_in <= to_unsigned(PAYLOAD_SIZE, data_in'length);
+        wait_clock_tick;
+        -- push the control code
+        data_in <= to_unsigned(c_RD_FAULT_TAB_STEP1, data_in'length);
+        wait_clock_tick;
+        rx <= '0';
+        -- expect a routing request to local port
+        wait until h'stable;
+        assert h = '1' report "A routing request is made" severity failure;
+        assert data = ('1' & std_logic_vector(unsigned(ADDRESS_FROM_INDEX(0)(data'high-1 downto 0)))) report "Control package to local port" severity failure;
+        wait_clock_tick;
+        -- answer it
+        ack_h <= '1';
+        wait_clock_tick;
+        ack_h <= '0';
+        -- accept package
+        data_ack <= '1';
+        -- header (already validated)
+        wait_clock_tick;
+        -- payload size
+        wait until data'stable;
+        assert data = std_logic_vector(to_unsigned(10, data_in'length)) report "We need 10 flits" severity failure;
+        wait_clock_tick;
+        -- control package type
+        wait until data'stable;
+        assert data = std_logic_vector(to_unsigned(4, data_in'length)) report "This package should be type 4" severity failure;
+        wait_clock_tick;
+        -- router address
+        wait until data'stable;
+        assert data = ADDRESS_FROM_INDEX(0) report "The router address is represented here again" severity failure;
+        wait_clock_tick;
+        -- fault table
+        for i in EAST to SOUTH loop
+            wait until data'stable;
+            assert data = index_and_n_counter_flit(c_TabelaFalhas(i)) report "Index and N don't match" severity failure;
+            wait_clock_tick;
+            wait until data'stable;
+            assert data = m_and_p_counters_flit(c_TabelaFalhas(i)) report "M and P don't match" severity failure;
+            wait_clock_tick;
+        end loop;
+        data_ack <= '0';
+        -- this is the end
+        wait until sender'stable;
+        assert sender = '0' report "This session should be finished" severity failure;
+        wait_clock_tick;
+        wait until c_ctrl'stable;
+        assert c_ctrl = '0' report "It's a control package flag" severity failure;
+        wait;
+    end process;
+
+end read_fault_table_ctrl_pkg_test;
