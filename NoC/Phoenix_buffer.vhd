@@ -71,8 +71,8 @@ end Phoenix_buffer;
 
 architecture Phoenix_buffer of Phoenix_buffer is
 
-type fila_out is (S_INIT, S_PAYLOAD, S_SENDHEADER, S_HEADER, S_END, S_END2,C_PAYLOAD,C_SIZE);
-signal EA : fila_out;
+type fila_out is (S_INIT, S_PAYLOAD, S_SENDHEADER, S_HEADER, S_END, S_END2,C_PAYLOAD,C_SIZE, C_HEADER);
+signal next_state, current_state : fila_out;
 
 signal buf: buff := (others=>(others=>'0'));
 signal first,last: unsigned((TAM_POINTER-1) downto 0) := (others=>'0');
@@ -98,6 +98,11 @@ signal last_count_rx: regflit := (others=>'0');
 signal retransmission_o: std_logic := '0';
 signal pkt_size: unsigned((TAM_FLIT-1) downto 0) := (others=>'0');
 
+signal indexFlitCtrlAux: integer :=0;
+signal has_data: boolean;
+signal is_last_flit: std_logic;
+signal bufferHead : regflit;
+signal pull: std_logic;
 
 begin
 
@@ -118,19 +123,7 @@ begin
 
     -- Verifica se existe espaco na fila para armazenamento de flits.
     -- Se existe espaco na fila o sinal tem_espaco_na_fila eh igual a 1.
-    process(reset, clock_rx)
-    begin
-        if reset = '1' then
-            tem_espaco <= '1';
-        elsif clock_rx'event and clock_rx = '1' then
-            if not ((first = x"0" and last = TAM_BUFFER - 1) or (first = last + 1)) then
-                tem_espaco <= '1';
-            else
-                tem_espaco <= '0';
-            end if;
-        end if;
-    end process;
-
+    tem_espaco <= '1' when not ((first = x"0" and last = TAM_BUFFER - 1) or (first = last + 1)) else '0';
     credit_o <= tem_espaco;
 
     -- O ponteiro last eh inicializado com o valor zero quando o reset eh ativado.
@@ -154,7 +147,7 @@ begin
             pkt_size <= (others=>'0');
             pkt_received := '1';
             
-        elsif clock_rx'event and clock_rx = '0' then
+        elsif rising_edge(clock_rx) then
             if (rx = '0' and pkt_received='1') then
                 count := 0;
                 last_count_rx <= (others=>'1');
@@ -221,7 +214,26 @@ end process;
    -------------------------------------------------------------------------------------------
 
    -- disponibiliza o dado para transmissao. Se nao estiver criando um pacote de controle, envia normalmente o dado do buffer, caso contrario envia dado criado (c_buffer)
-   data <= buf(to_integer(first)) when c_createmessage ='0' else c_Buffer;
+   data <= bufferHead when c_createmessage ='0' else c_Buffer;
+
+   has_data <= first /= last;
+   is_last_flit <= '1' when (first = TAM_BUFFER - 1 and last = 0) or (first + 1 = last) else '0';
+   bufferHead <= buf(to_integer(first));
+
+    process(reset, clock)
+    begin
+        if reset = '1' then
+            first <= (others=>'0');
+        elsif rising_edge(clock) then
+            if pull = '1' and has_data then
+                if first = TAM_BUFFER - 1 then
+                   first <= (others=>'0');
+                else
+                   first <= first + 1;
+                end if;
+            end if;
+        end if;
+    end process;
 
    -- Quando sinal reset eh ativado a maquina de estados avanca para o estado S_INIT.
    -- No estado S_INIT os sinais counter_flit (contador de flits do corpo do pacote), h (que
@@ -254,12 +266,12 @@ end process;
          h <= '0';
          data_av <= '0';
          sender <=  '0';
-         first <= (others=>'0');
+         pull <= '0';
          eh_controle <= '0';
          c_chipETable <= '0';
-         EA <= S_INIT;
-      elsif clock'event and clock = '1' then
-         case EA is
+      elsif rising_edge(clock) then
+         pull <= '0';
+         case current_state is
             when S_INIT =>
                c_chipETable <= '0'; -- desabilita escrita na tabela de roteamento
                counter_flit <= (others=>'0');
@@ -269,11 +281,11 @@ end process;
                last_retransmission <= (others=>'0');
 
                -- se existe dados no buffer a serem transmitidos (por causa dos ponteiros first e last diferentes) OU se devo criar um pacote de controle com a  tabela de falhas
-               if first /= last or c_createmessage = '1' then
+               if has_data or c_createmessage = '1' then
 
                   -- se o primeiro flit do pacote a ser transmitido possui o bit indicando que eh um pacote de controle E se nesse primeiro flit possui o endereco do roteador em que o buffer se encontra
                   -- OU se devo criar um pacote de controle com a tabela de falhas (este pacote eh criado se for pedido a leitura da tabela de falhas)
-                  if((buf(to_integer(first))(TAM_FLIT-1)='1') and (buf(to_integer(first))((TAM_FLIT-2) downto 0)=address((TAM_FLIT-2) downto 0))) or c_createmessage = '1' then -- PACOTE DE CONTROLE
+                  if((bufferHead(TAM_FLIT-1)='1') and (bufferHead((TAM_FLIT-2) downto 0)=address((TAM_FLIT-2) downto 0))) or c_createmessage = '1' then -- PACOTE DE CONTROLE
 
                      -- se preciso criar um pacote com a tabela de falhas. Comentario antigo: o pacote de controle pare este roteador
                      if c_createmessage = '1' then
@@ -282,7 +294,6 @@ end process;
                         if codigoControl = c_RD_FAULT_TAB_STEP1 then
                            c_Buffer <=  '1' & address((TAM_FLIT-2) downto 0); -- entao crio o primeiro flit do pacote que vai conter a tabela de falhas
                            h <= '1';         -- requisicao de chaveamento (chavear os dados de entrada para a porta de saida atraves da crossbar)
-                           EA <= S_HEADER;   -- maquina de estados avanca para o estado S_HEADER
                            eh_controle <= '1'; -- indica que o pacote lido/criado eh de controle
                            c_direcao <= "10000"; --direcao para a saida Local
                         end if;
@@ -291,13 +302,8 @@ end process;
                      else
                         -- incrementa ponteiro first (ponteiro usado para envio)
                         -- nao preciso tratar erro detectado aqui, pq em ED o flit eh igual a zero, logo nao sera pacote de controle
-                        if first = TAM_BUFFER - 1 then
-                           first <= (others=>'0');
-                        else
-                           first <= first + 1;
-                        end if;
+                        pull <= '1';
 
-                        EA <= C_SIZE; -- maquina de estados avanca para o estado S_SIZE (estado onde eh lido o tamanho do pacote)
                         eh_controle <= '1'; -- indica que o pacote lido/criado eh de controle
                         c_direcao <= "10000"; -- direcao para o a saida Local
                      end if;
@@ -305,7 +311,6 @@ end process;
                   -- tenho dados para enviar e nao sao de controle (apenas pacote de dados)
                   else
                     h <= '1';         -- requisicao de chaveamento (chavear os dados de entrada para a porta de saida atraves da crossbar)
-                    EA <= S_HEADER;   -- maquina de estados avanca para o estado S_HEADER
                   end if;
 
                -- entao nao tenho dados no buffer para enviar nem preciso criar um pacote de controle
@@ -323,10 +328,10 @@ end process;
 
                -- atendido/confirmado a requisicao de chaveamento OU se link destino tiver falhar
                if ack_h = '1' or c_error = '1' then
-                  EA <= S_SENDHEADER;
                   h <= '0'; -- nao preciso mais solicitar o chaveamento pq ele foi ja foi atendido :)
                   data_av <= '1'; -- data available (usado para indicar que exite flit a ser transmitido)
                   sender <= '1'; -- usado para indicar que esta transmitindo (por este sinal sabemos quando termina a transmissao e a porta destino desocupa)
+                  pull <= '1';
                end if;
 
             when S_SENDHEADER  =>
@@ -339,17 +344,11 @@ end process;
                      -- se receptor nao pediu retransmissao, continua enviando
                      if (retransmission_in='0') then
 
-                        EA <= S_PAYLOAD;
-                        if first = TAM_BUFFER - 1 then
-                           first <= (others=>'0');
-                           if last /= 0 then   data_av <= '1';
-                           else data_av <= '0';
-                           end if;
+                        pull <= '1';
+                        if has_data then
+                            data_av <= not is_last_flit;
                         else
-                           first <= first + 1;
-                           if first + 1 /= last then data_av <= '1';
-                           else data_av <= '0';
-                           end if;
+                            data_av <= '0';
                         end if;
 
                      -- solicitou reenvio do pacote, logo ponteiro nao sera incrementado e dado sera enviado novamente
@@ -365,7 +364,6 @@ end process;
                      if codigoControl = c_RD_FAULT_TAB_STEP1 then
                         counter_flit <= x"000A"; -- 10 flits de payload (code + origem + tabela)
                         c_Buffer <= x"000A"; -- segundo flit do pacote de controle criado (tamanho de pacote)
-                        EA <= C_PAYLOAD;
                         indexFlitCtrl := 0;
                         varControlCom  := 10;
                      end if;
@@ -388,59 +386,36 @@ end process;
 
                   -- se counter_flit eh zero indica que terei que receber o size do payload
                   if counter_flit = x"0" then
-                     counter_flit <=  unsigned(buf(to_integer(first)));
+                     counter_flit <=  unsigned(bufferHead);
                      counter_flit_up <= (1=>'1', others=>'0'); -- 2
                   else
                      counter_flit <= counter_flit - 1;
                      counter_flit_up <= counter_flit_up + 1;
                   end if;
 
-                  -- incrementa pointeiro first (usado para transmitir flit) e sinaliza que tem dado disponivel
-                  if first = TAM_BUFFER - 1 then
-                     first <= (others=>'0');
-                     if last /= 0 then
-                        data_av <= '1'; -- (data available)
-                     else
-                        data_av <= '0';
-                     end if;
-                  else
-                     first <= first + 1;
-                     if first + 1 /= last then
-                        data_av <= '1';
-                     else
-                        data_av <= '0';
-                     end if;
-                  end if;
+                  pull <= '1';
+                  data_av <= not is_last_flit;
 
                -- se eh o ultimo flit do pacote E se foi confirmado que foi recebido com sucesso o dado transmitido OU o link destino esta com falha. Comentario antigo: confirmacao do envio do tail
                elsif counter_flit = x"1" and (data_ack = '1' or c_error = '1') then
-                  -- Incrementa pointeiro de envio. Comentario antigo: retira um dado do buffer
-                  if first = TAM_BUFFER - 1 then
-                     first <= (others=>'0');
-                  else
-                     first <= first + 1;
-                  end if;
+                  pull <= '1';
                   data_av <= '0'; -- como o ultimo flit sera enviado, nao tem mais dados disponiveis
                   sender <= '0'; -- como o ultimo flit sera enviado, nao preciso sinalizar que estou enviando dados
-                  EA <= S_END; -- -- como o ultimo flit sera enviado, posso ir para o estado S_END
 
                -- se tem dado a ser enviado, sinaliza
-               elsif first /= last then
+               elsif has_data then
                   data_av <= '1'; -- (data available)
                end if;
 
+            when C_HEADER =>
+                pull <= '1';
+
             when C_SIZE =>
                -- detectou dado na fila (tem dados a serem enviados no buffer)   e nao pediu retransmissao
-               if (first /= last and retransmission_o='0') then
-                  counter_flit <= unsigned(buf(to_integer(first))); -- leitura do segundo flit (tamanho do pacote)
+               if (has_data and retransmission_o='0') then
+                  counter_flit <= unsigned(bufferHead); -- leitura do segundo flit (tamanho do pacote)
 
-                  -- incrementa o pointeiro first (pointeiro usado para envio)
-                  if first = TAM_BUFFER - 1 then
-                     first <= (others=>'0');
-                  else
-                     first <= first + 1;
-                  end if;
-                  EA <= C_PAYLOAD;
+                  pull <= '1';
                   indexFlitCtrl := 0;   -- coloca o indice do flit de controle igual 0 (esse indice eh usado para percorrer os flits de payload de controle). O indice igual a 0 representa o terceito flit do pacote e nele havera o Code (codigo que indica o tipo do pacote de controle)
                   varControlCom  := 1;  -- numero de flits no payload usados para processar o pacote de controle
                end if;
@@ -449,32 +424,28 @@ end process;
 
                c_chipETable <= '0'; -- desabilita escrita na tabela de roteamento
 
-               if (first /= last) and indexFlitCtrl /= varControlCom and c_createmessage = '0' and retransmission_o='0' then
+               if (has_data) and indexFlitCtrl /= varControlCom and c_createmessage = '0' and retransmission_o='0' then
 
-                  if first = TAM_BUFFER - 1 then
-                     first <= (others=>'0');
-                  else
-                     first <= first + 1;
-                  end if;
+                  pull <= '1';
 
                end if;
 
                -- indice igual a zero, ou seja, primeiro flit do payload do pacote (onde possui o codigo do pacote de controle)
                if (indexFlitCtrl = 0 and retransmission_o='0') then
-                        codigoControl <= unsigned(buf(to_integer(first))); -- leitura do tipo do pacote de controle (leitura do Code)
+                        codigoControl <= unsigned(bufferHead); -- leitura do tipo do pacote de controle (leitura do Code)
                         indexFlitCtrl := indexFlitCtrl + 1; -- incrementa o indice do payload que sera lido
                         counter_flit <= counter_flit - 1; -- decrementa o numero de flits que faltam a ser lidos/processados do pacote
 
                         -- define qual o tamanho da variavel de comando (tamanho do payload).
                         -- Pode ser entendido como o numero de flits no payload usados para processar o pacote de controle
                         if c_createmessage = '0' then
-                           if to_integer(unsigned(buf(to_integer(first)))) = c_WR_ROUT_TAB then
+                           if to_integer(unsigned(bufferHead)) = c_WR_ROUT_TAB then
                               varControlCom := 5;
-                           elsif to_integer(unsigned(buf(to_integer(first)))) = c_WR_FAULT_TAB then
+                           elsif to_integer(unsigned(bufferHead)) = c_WR_FAULT_TAB then
                               varControlCom := 9; -- code + tabela
-                           elsif to_integer(unsigned(buf(to_integer(first)))) = c_RD_FAULT_TAB_STEP1 then
+                           elsif to_integer(unsigned(bufferHead)) = c_RD_FAULT_TAB_STEP1 then
                               varControlCom := 1;
-                           elsif to_integer(unsigned(buf(to_integer(first)))) = c_TEST_LINKS  then
+                           elsif to_integer(unsigned(bufferHead)) = c_TEST_LINKS  then
                               varControlCom := 1;
                            end if;
 
@@ -496,15 +467,12 @@ end process;
                         -- terminou de processar todos os flits do pacote de controle
                         if indexFlitCtrl = 5 then
                            counter_flit <= counter_flit - 1;
-                           if counter_flit = x"1" then
-                              EA <= S_END;
-                           end if;
                            c_chipETable <= '1'; -- habilita escrita na tabela de roteamento
                            indexFlitCtrl := 1;
                         else
-                           buffCtrl(indexFlitCtrl-1) <= buf(to_integer(first)); -- vai armazenando os dados lido do pacote de controle (o pacote tera uma linha da tabela de roteamento)
+                           buffCtrl(indexFlitCtrl-1) <= bufferHead; -- vai armazenando os dados lido do pacote de controle (o pacote tera uma linha da tabela de roteamento)
 
-                           if (first /= last) then
+                           if (has_data) then
                               if indexFlitCtrl /= 4 then
                                  counter_flit <= counter_flit - 1;
                               end if;
@@ -518,30 +486,30 @@ end process;
                elsif (codigoControl = c_WR_FAULT_TAB and retransmission_o='0') then
 
                         case (indexFlitCtrl) is
-                           when 1 => buffCtrlFalha(EAST)((3*COUNTERS_SIZE+1) downto 3*COUNTERS_SIZE) <= buf(to_integer(first))((METADEFLIT+1) downto METADEFLIT); -- leitura dos 2 bits que indicam falha que sera armazenado/atualizado na tabela de falhas
-                                buffCtrlFalha(EAST)((3*COUNTERS_SIZE-1) downto 2*COUNTERS_SIZE) <= buf(to_integer(first))(COUNTERS_SIZE-1 downto 0); -- leitura do contador N
-                           when 2 => buffCtrlFalha(EAST)((2*COUNTERS_SIZE-1) downto COUNTERS_SIZE) <= buf(to_integer(first))((METADEFLIT+COUNTERS_SIZE-1) downto METADEFLIT); -- leitura do contador M
-                                buffCtrlFalha(EAST)((COUNTERS_SIZE-1) downto 0) <= buf(to_integer(first))(COUNTERS_SIZE-1 downto 0); -- leitura do contador P
+                           when 1 => buffCtrlFalha(EAST)((3*COUNTERS_SIZE+1) downto 3*COUNTERS_SIZE) <= bufferHead((METADEFLIT+1) downto METADEFLIT); -- leitura dos 2 bits que indicam falha que sera armazenado/atualizado na tabela de falhas
+                                buffCtrlFalha(EAST)((3*COUNTERS_SIZE-1) downto 2*COUNTERS_SIZE) <= bufferHead(COUNTERS_SIZE-1 downto 0); -- leitura do contador N
+                           when 2 => buffCtrlFalha(EAST)((2*COUNTERS_SIZE-1) downto COUNTERS_SIZE) <= bufferHead((METADEFLIT+COUNTERS_SIZE-1) downto METADEFLIT); -- leitura do contador M
+                                buffCtrlFalha(EAST)((COUNTERS_SIZE-1) downto 0) <= bufferHead(COUNTERS_SIZE-1 downto 0); -- leitura do contador P
 
-                           when 3 => buffCtrlFalha(WEST)((3*COUNTERS_SIZE+1) downto 3*COUNTERS_SIZE) <= buf(to_integer(first))((METADEFLIT+1) downto METADEFLIT); -- leitura dos 2 bits que indicam falha que sera armazenado/atualizado na tabela de falhas
-                                buffCtrlFalha(WEST)((3*COUNTERS_SIZE-1) downto 2*COUNTERS_SIZE) <= buf(to_integer(first))(COUNTERS_SIZE-1 downto 0); -- leitura do contador N
-                           when 4 => buffCtrlFalha(WEST)((2*COUNTERS_SIZE-1) downto COUNTERS_SIZE) <= buf(to_integer(first))((METADEFLIT+COUNTERS_SIZE-1) downto METADEFLIT); -- leitura do contador M
-                                buffCtrlFalha(WEST)((COUNTERS_SIZE-1) downto 0) <= buf(to_integer(first))(COUNTERS_SIZE-1 downto 0); -- leitura do contador P
+                           when 3 => buffCtrlFalha(WEST)((3*COUNTERS_SIZE+1) downto 3*COUNTERS_SIZE) <= bufferHead((METADEFLIT+1) downto METADEFLIT); -- leitura dos 2 bits que indicam falha que sera armazenado/atualizado na tabela de falhas
+                                buffCtrlFalha(WEST)((3*COUNTERS_SIZE-1) downto 2*COUNTERS_SIZE) <= bufferHead(COUNTERS_SIZE-1 downto 0); -- leitura do contador N
+                           when 4 => buffCtrlFalha(WEST)((2*COUNTERS_SIZE-1) downto COUNTERS_SIZE) <= bufferHead((METADEFLIT+COUNTERS_SIZE-1) downto METADEFLIT); -- leitura do contador M
+                                buffCtrlFalha(WEST)((COUNTERS_SIZE-1) downto 0) <= bufferHead(COUNTERS_SIZE-1 downto 0); -- leitura do contador P
 
-                           when 5 => buffCtrlFalha(NORTH)((3*COUNTERS_SIZE+1) downto 3*COUNTERS_SIZE) <= buf(to_integer(first))((METADEFLIT+1) downto METADEFLIT); -- leitura dos 2 bits que indicam falha que sera armazenado/atualizado na tabela de falhas
-                                buffCtrlFalha(NORTH)((3*COUNTERS_SIZE-1) downto 2*COUNTERS_SIZE) <= buf(to_integer(first))(COUNTERS_SIZE-1 downto 0); -- leitura do contador N
-                           when 6 => buffCtrlFalha(NORTH)((2*COUNTERS_SIZE-1) downto COUNTERS_SIZE) <= buf(to_integer(first))((METADEFLIT+COUNTERS_SIZE-1) downto METADEFLIT); -- leitura do contador M
-                                buffCtrlFalha(NORTH)((COUNTERS_SIZE-1) downto 0) <= buf(to_integer(first))(COUNTERS_SIZE-1 downto 0); -- leitura do contador P
+                           when 5 => buffCtrlFalha(NORTH)((3*COUNTERS_SIZE+1) downto 3*COUNTERS_SIZE) <= bufferHead((METADEFLIT+1) downto METADEFLIT); -- leitura dos 2 bits que indicam falha que sera armazenado/atualizado na tabela de falhas
+                                buffCtrlFalha(NORTH)((3*COUNTERS_SIZE-1) downto 2*COUNTERS_SIZE) <= bufferHead(COUNTERS_SIZE-1 downto 0); -- leitura do contador N
+                           when 6 => buffCtrlFalha(NORTH)((2*COUNTERS_SIZE-1) downto COUNTERS_SIZE) <= bufferHead((METADEFLIT+COUNTERS_SIZE-1) downto METADEFLIT); -- leitura do contador M
+                                buffCtrlFalha(NORTH)((COUNTERS_SIZE-1) downto 0) <= bufferHead(COUNTERS_SIZE-1 downto 0); -- leitura do contador P
 
-                           when 7 => buffCtrlFalha(SOUTH)((3*COUNTERS_SIZE+1) downto 3*COUNTERS_SIZE) <= buf(to_integer(first))((METADEFLIT+1) downto METADEFLIT); -- leitura dos 2 bits que indicam falha que sera armazenado/atualizado na tabela de falhas
-                                buffCtrlFalha(SOUTH)((3*COUNTERS_SIZE-1) downto 2*COUNTERS_SIZE) <= buf(to_integer(first))(COUNTERS_SIZE-1 downto 0); -- leitura do contador N
-                           when 8 => buffCtrlFalha(SOUTH)((2*COUNTERS_SIZE-1) downto COUNTERS_SIZE) <= buf(to_integer(first))((METADEFLIT+COUNTERS_SIZE-1) downto METADEFLIT); -- leitura do contador M
-                                buffCtrlFalha(SOUTH)((COUNTERS_SIZE-1) downto 0) <= buf(to_integer(first))(COUNTERS_SIZE-1 downto 0); -- leitura do contador P
+                           when 7 => buffCtrlFalha(SOUTH)((3*COUNTERS_SIZE+1) downto 3*COUNTERS_SIZE) <= bufferHead((METADEFLIT+1) downto METADEFLIT); -- leitura dos 2 bits que indicam falha que sera armazenado/atualizado na tabela de falhas
+                                buffCtrlFalha(SOUTH)((3*COUNTERS_SIZE-1) downto 2*COUNTERS_SIZE) <= bufferHead(COUNTERS_SIZE-1 downto 0); -- leitura do contador N
+                           when 8 => buffCtrlFalha(SOUTH)((2*COUNTERS_SIZE-1) downto COUNTERS_SIZE) <= bufferHead((METADEFLIT+COUNTERS_SIZE-1) downto METADEFLIT); -- leitura do contador M
+                                buffCtrlFalha(SOUTH)((COUNTERS_SIZE-1) downto 0) <= bufferHead(COUNTERS_SIZE-1 downto 0); -- leitura do contador P
 
                            when others => null;
                         end case;
 
-                        if (first /= last) then
+                        if (has_data) then
                            indexFlitCtrl := indexFlitCtrl + 1;
                            counter_flit <= counter_flit - 1;
                         end if;
@@ -549,7 +517,6 @@ end process;
                         -- ultimo flit?
                         if counter_flit = 0 then
                            ceTF_out <= '1'; -- habilita ce para escrever/atualizar a tabela de falhas
-                           EA <= S_END;
                         end if;
 
 
@@ -558,7 +525,6 @@ end process;
                elsif codigoControl = c_RD_FAULT_TAB_STEP1 then
                         --codigo requerindo a tabela de falhas
                         counter_flit <= counter_flit - 1;
-                        EA <= S_INIT;
                         -- sinal usado para criar um pacote de controle com a tabela de falhas. Comentario antigo: envia msg para tabela
                         c_createmessage <= '1';
 
@@ -605,7 +571,6 @@ end process;
                               c_createmessage <= '0'; -- nao preciso mais sinalizar para criar um pacote, pq ele ja foi criado e enviado :)
                               data_av <= '0'; -- ja enviei o pacote, entao nao tem mais dados disponiveis
                               sender <= '0'; -- ja enviei o pacote, nao preciso sinalizar que estou enviando
-                              EA <= S_END;
 
                         -- se tem dado a ser enviado, sinalizado que existe dados disponiveis
                         else
@@ -623,7 +588,6 @@ end process;
                      -- se terminou o teste de links
                      if c_stpLinkTst = '1' then
                         c_strLinkTstLocal <= '0'; -- nao preciso mais pedir para iniciar o teste de link pq ele ja acabou :)
-                        EA <= S_END;
                      end if;
                end if;
 
@@ -634,12 +598,13 @@ end process;
                data_av <= '0';
                c_direcao <= (others=>'0');
                indexFlitCtrl := 0;
-               EA <= S_END2;
+               pull <= '0';
 
             when S_END2 => -- estado necessario para permitir a liberacao da porta antes da solicitacao de novo envio
                data_av <= '0';
-               EA <= S_INIT;
+               pull <= '0';
          end case;
+      indexFlitCtrlAux <= indexFlitCtrl;
       end if;
    end process;
 
@@ -650,5 +615,96 @@ end process;
    c_buffCtrlFalha <= buffCtrlFalha;
    c_ceTF_out <= ceTF_out;
    c_strLinkTst <= c_strLinkTstLocal;
+
+    process(current_state, ack_h, indexFlitCtrlAux, has_data, c_createmessage, bufferHead, counter_flit, codigoControl, c_stpLinkTst, data_ack, c_error, retransmission_o, retransmission_in)
+    begin
+        next_state <= current_state;
+        case current_state is
+            when S_INIT =>
+               if has_data or c_createmessage = '1' then
+                  if((bufferHead(TAM_FLIT-1)='1') and (bufferHead((TAM_FLIT-2) downto 0)=address((TAM_FLIT-2) downto 0))) or c_createmessage = '1' then -- PACOTE DE CONTROLE
+                     if c_createmessage = '1' then
+                        if codigoControl = c_RD_FAULT_TAB_STEP1 then
+                           next_state <= S_HEADER;
+                        end if;
+                     else
+                        next_state <= C_HEADER;
+                     end if;
+                  else
+                    next_state <= S_HEADER;
+                  end if;
+               end if;
+
+            when S_HEADER =>
+               if ack_h = '1' or c_error = '1' then
+                  next_state <= S_SENDHEADER;
+               end if;
+
+            when S_SENDHEADER  =>
+               if data_ack = '1' or c_error = '1' then
+                  if c_createmessage = '0' then
+                     if (retransmission_in='0') then
+                        next_state <= S_PAYLOAD;
+                     end if;
+                  else
+                     if codigoControl = c_RD_FAULT_TAB_STEP1 then
+                        next_state <= C_PAYLOAD;
+                     end if;
+                  end if;
+               end if;
+
+            when S_PAYLOAD =>
+               if (( data_ack = '1' or c_error = '1') and retransmission_in = '1') then
+               elsif counter_flit /= x"1" and ( data_ack = '1' or c_error = '1') then
+               elsif counter_flit = x"1" and (data_ack = '1' or c_error = '1') then
+                  next_state <= S_END;
+               end if;
+
+            when C_HEADER =>
+                next_state <= C_SIZE;
+
+            when C_SIZE =>
+               if (has_data and retransmission_o='0') then
+                  next_state <= C_PAYLOAD;
+               end if;
+
+            when C_PAYLOAD =>
+               if (indexFlitCtrlAux = 0 and retransmission_o='0') then
+               elsif (codigoControl = c_WR_ROUT_TAB and retransmission_o='0') then
+                        if indexFlitCtrlAux = 5 and counter_flit = x"1" then
+                            next_state <= S_END;
+                        end if;
+               elsif (codigoControl = c_WR_FAULT_TAB and retransmission_o='0') then
+                        if counter_flit = 0 then
+                           next_state <= S_END;
+                        end if;
+               elsif codigoControl = c_RD_FAULT_TAB_STEP1 then
+                        next_state <= S_INIT;
+               elsif codigoControl = c_RD_FAULT_TAB_STEP2 then
+                        if counter_flit = x"0" then
+                              next_state <= S_END;
+                        end if;
+               elsif codigoControl = c_TEST_LINKS then
+                     if c_stpLinkTst = '1' then
+                        next_state <= S_END;
+                     end if;
+               end if;
+
+            when S_END =>
+               next_state <= S_END2;
+
+            when S_END2 =>
+               next_state <= S_INIT;
+         end case;
+    end process;
+
+    process(reset, clock)
+    begin
+        if reset = '1' then
+            current_state <= S_INIT;
+        elsif rising_edge(clock) then
+            current_state <= next_state;
+        end if;
+    end process;
 
 end Phoenix_buffer;
