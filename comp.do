@@ -17,6 +17,7 @@ vcom -work work -93 -explicit NoC/FPPM_AA00.vhd
 
 # NoC
 vcom -work work -93 -explicit NoC/Phoenix_RM.vhd
+vcom -work work -93 -explicit NoC/fifo_buffer.vhd
 vcom -work work -93 -explicit NoC/Phoenix_buffer.vhd
 vcom -work work -93 -explicit NoC/outputArbiter.vhd
 vcom -work work -93 -explicit NoC/FaultDetection.vhd

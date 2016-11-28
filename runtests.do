@@ -9,6 +9,7 @@ vcom -work work -93 -explicit NoC/HammingPack16.vhd
 
 # Hamming and fault blocks
 vcom -work work -93 -explicit NoC/FaultInjector.vhd
+vcom -work work -93 -explicit NoC/fifo_buffer.vhd
 vcom -work work -93 -explicit NoC/Phoenix_buffer.vhd
 
 # TestBench

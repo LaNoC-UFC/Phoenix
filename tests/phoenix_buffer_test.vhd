@@ -100,7 +100,8 @@ begin
         assert data_av = '0' report "Buffer shouldn't have no more data" severity failure;
         assert sender = '0' report "Buffer shouldn't been sending any more" severity failure;
         assert credit_o = '1' report "Buffer should be empty" severity failure;
-        -- 
+        --
+        report "GOOD: Test finished gracefully";
         wait;
     end process;
 
@@ -224,6 +225,7 @@ begin
         assert data_av = '0' report "Buffer shouldn't have data" severity failure;
         assert sender = '0' report "Buffer shouldn't been sending" severity failure;
         --
+        report "GOOD: Test finished gracefully";
         wait;
     end process;
 
@@ -333,6 +335,7 @@ begin
         assert data_av = '0' report "There should be no data available" severity failure;
         data_ack <= '0';
         --
+        report "GOOD: Test finished gracefully";
         wait;
     end process;
 
@@ -422,6 +425,7 @@ begin
             assert data_av = '0' report "There should be no data available" severity failure;
         end loop;
         --
+        report "GOOD: Test finished gracefully";
         wait;
     end process;
 
@@ -543,6 +547,7 @@ begin
         assert c_strLinkTst = '0' report "And no request was made at all" severity failure;
         c_stpLinkTst <= '0';
         --
+        report "GOOD: Test finished gracefully";
         wait;
     end process;
 
@@ -647,6 +652,7 @@ begin
             assert c_strLinkTst = '0' report "No test should be requested" severity failure;
         end loop;
         --
+        report "GOOD: Test finished gracefully";
         wait;
     end process;
 
@@ -759,8 +765,6 @@ begin
             wait_clock_tick;
             data_in <= unsigned(m_counter_n_counter_flit(m, p));
             wait_clock_tick;
-            wait until c_buffCtrlFalha'stable;
-            assert c_buffCtrlFalha(port_index) = fault_row(index, n, m, p) report "Final value was assigned" severity failure;
         end check_write_check_falt_fault;
     begin
         rx <= '0';
@@ -774,11 +778,11 @@ begin
         rx <= '1';
         data_in <= '1' & unsigned(ADDRESS_FROM_INDEX(0)(data_in'high-1 downto 0));
         wait_clock_tick;
-        wait until c_ctrl'stable;
-        assert c_ctrl = '1' report "It is a control package" severity failure;
         -- push the package size
         data_in <= to_unsigned(PAYLOAD_SIZE, data_in'length);
         wait_clock_tick;
+        wait until c_ctrl'stable;
+        assert c_ctrl = '1' report "It is a control package" severity failure;
         -- push the control code
         data_in <= to_unsigned(c_WR_FAULT_TAB, data_in'length);
         wait_clock_tick;
@@ -794,10 +798,15 @@ begin
         wait_clock_tick;
         wait until c_ceTF_out'stable;
         assert c_ceTF_out = '1' report "Signal write/update table" severity failure;
+        assert c_buffCtrlFalha(EAST) = fault_row(FAULTY_INDEX, 1, 2, 3) report "Final value was assigned " & integer'image(EAST) severity failure;
+        assert c_buffCtrlFalha(WEST) = fault_row(FAULT_TENDENCY_INDEX, 4, 5, 6) report "Final value was assigned " & integer'image(WEST) severity failure;
+        assert c_buffCtrlFalha(NORTH) = fault_row(NO_FAULT_INDEX, 7, 8, 9) report "Final value was assigned " & integer'image(NORTH) severity failure;
+        assert c_buffCtrlFalha(SOUTH) = fault_row(NO_FAULT_INDEX, 10, 11, 12) report "Final value was assigned " & integer'image(SOUTH) severity failure;
         wait_clock_tick;
         wait until c_ceTF_out'stable;
         assert c_ceTF_out = '0' report "Signal write/update table" severity failure;
         --
+        report "GOOD: Test finished gracefully";
         wait;
     end process;
 
@@ -871,11 +880,11 @@ begin
         rx <= '1';
         data_in <= '1' & unsigned(ADDRESS_FROM_INDEX(0)(data_in'high-1 downto 0));
         wait_clock_tick;
-        wait until c_ctrl'stable;
-        assert c_ctrl = '1' report "It is a control package" severity failure;
         -- push the package size
         data_in <= to_unsigned(PAYLOAD_SIZE, data_in'length);
         wait_clock_tick;
+        wait until c_ctrl'stable;
+        assert c_ctrl = '1' report "It is a control package" severity failure;
         -- push the control code
         data_in <= to_unsigned(c_WR_ROUT_TAB, data_in'length);
         wait_clock_tick;
@@ -884,16 +893,18 @@ begin
             assert std_logic_vector(to_unsigned(0, data_in'length)) = c_buffCtrlOut(i-1) report "Initial value is zero" severity failure;
             data_in <= unsigned(to_unsigned(i, data_in'length));
             wait_clock_tick;
-            wait until c_buffCtrlOut'stable;
-            assert std_logic_vector(to_unsigned(i, data_in'length)) = c_buffCtrlOut(i-1) report "Value was registered" severity failure;
         end loop;
         rx <= '0';
         wait until c_chipETable'stable;
         assert c_chipETable = '1' report "Signal write/update routing table" severity failure;
+        for i in 1 to PAYLOAD_SIZE-1 loop
+            assert std_logic_vector(to_unsigned(i, data_in'length)) = c_buffCtrlOut(i-1) report "Value was registered" severity failure;
+        end loop;
         wait_clock_tick;
         wait until c_chipETable'stable;
         assert c_chipETable = '0' report "Signal write/update routing table" severity failure;
         --
+        report "GOOD: Test finished gracefully";
         wait;
     end process;
 
@@ -991,11 +1002,11 @@ begin
         rx <= '1';
         data_in <= '1' & unsigned(ADDRESS_FROM_INDEX(0)(data_in'high-1 downto 0));
         wait_clock_tick;
-        wait until c_ctrl'stable;
-        assert c_ctrl = '1' report "It is a control package" severity failure;
         -- push the package size
         data_in <= to_unsigned(PAYLOAD_SIZE, data_in'length);
         wait_clock_tick;
+        wait until c_ctrl'stable;
+        assert c_ctrl = '1' report "It is a control package" severity failure;
         -- push the control code
         data_in <= to_unsigned(c_RD_FAULT_TAB_STEP1, data_in'length);
         wait_clock_tick;
@@ -1041,6 +1052,8 @@ begin
         wait_clock_tick;
         wait until c_ctrl'stable;
         assert c_ctrl = '0' report "It's a control package flag" severity failure;
+        --
+        report "GOOD: Test finished gracefully";
         wait;
     end process;
 

@@ -74,8 +74,6 @@ architecture Phoenix_buffer of Phoenix_buffer is
 type fila_out is (S_INIT, S_PAYLOAD, S_SENDHEADER, S_HEADER, S_END, S_END2,C_PAYLOAD,C_SIZE, C_HEADER);
 signal next_state, current_state : fila_out;
 
-signal buf: buff := (others=>(others=>'0'));
-signal first,last: unsigned((TAM_POINTER-1) downto 0) := (others=>'0');
 signal tem_espaco: std_logic := '0';
 signal counter_flit: unsigned((TAM_FLIT-1) downto 0) := (others=>'0');
 
@@ -101,10 +99,30 @@ signal pkt_size: unsigned((TAM_FLIT-1) downto 0) := (others=>'0');
 signal indexFlitCtrlAux: integer :=0;
 signal has_data: boolean;
 signal is_last_flit: std_logic;
-signal bufferHead : regflit;
-signal pull: std_logic;
+signal bufferHead, tail : regflit;
+signal pull, push: std_logic;
+signal counter: integer;
+signal is_tail: boolean;
+signal number_of_retransmissions: integer;
 
 begin
+
+    circularFifoBuffer : entity work.fifo_buffer
+    generic map(BUFFER_DEPTH => TAM_BUFFER - 1,
+                BUFFER_WIDTH => regflit'length)
+    port map(
+        reset =>     reset,
+        clock =>     clock_rx,
+        tail =>      tail,
+        push =>      push,
+        pull =>      pull,
+        counter =>   counter,
+        head =>      bufferHead
+    );
+    tail <= std_logic_vector(data_in + to_unsigned(number_of_retransmissions, data_in'length)) when is_tail else std_logic_vector(data_in);
+    push <= '1' when rx = '1' and statusHamming /= ED and ((c_strLinkTstAll = '0' and c_strLinkTstNeighbor='0') or bufLocation = LOCAL) else '0';
+    has_data <= counter /= 0;
+    is_last_flit <= '1' when counter = 1 else '0';
 
     retransmission_out <= retransmission_o;
 
@@ -120,11 +138,9 @@ begin
    -------------------------------------------------------------------------------------------
    -- ENTRADA DE DADOS NA FILA
    -------------------------------------------------------------------------------------------
-
-    -- Verifica se existe espaco na fila para armazenamento de flits.
-    -- Se existe espaco na fila o sinal tem_espaco_na_fila eh igual a 1.
-    tem_espaco <= '1' when not ((first = x"0" and last = TAM_BUFFER - 1) or (first = last + 1)) else '0';
+    tem_espaco <= '1' when counter < TAM_BUFFER-1 else '0';
     credit_o <= tem_espaco;
+    retransmission_o <= '1' when statusHamming = ED else '0';
 
     -- O ponteiro last eh inicializado com o valor zero quando o reset eh ativado.
     -- Quando o sinal rx eh ativado indicando que existe um flit na porta de entrada. Eh
@@ -141,11 +157,12 @@ begin
         variable total_count_retx: unsigned((TAM_FLIT-1) downto 0);
     begin
         if reset = '1' then
-            last <= (others=>'0');
             count := 0;
             last_count_rx <= (others=>'0');
             pkt_size <= (others=>'0');
             pkt_received := '1';
+            is_tail <= false;
+            number_of_retransmissions <= 0;
             
         elsif rising_edge(clock_rx) then
             if (rx = '0' and pkt_received='1') then
@@ -156,6 +173,11 @@ begin
                 count_retx := 0;
             end if;
 
+            if (count = pkt_size+1 and pkt_size > 0) then
+                is_tail <= true;
+            else
+                is_tail <= false;
+            end if;
             -- se tenho espaco e se tem alguem enviando, armazena, mas
             -- nao queremos armazenar os flits recebidos durante o teste de link, entao
             -- se meu roteador esta testando os links ou se o link ligado a este buffer esta sendo testando pelo vizinho, irei ignorar os flits durante o teste
@@ -163,32 +185,20 @@ begin
             if tem_espaco = '1' and rx = '1' and ((c_strLinkTstAll = '0' and c_strLinkTstNeighbor='0') or bufLocation = LOCAL) then
                 -- se nao deu erro, esta tudo normal. Posso armazenar o flit no buffer e incrementar o ponteiro
                 if (statusHamming /= ED) then
-                    retransmission_o <= '0';
                     -- modifica o ultimo flit do pacote para armazenar o numero de retransmissoes
-                    if (count = pkt_size+1 and pkt_size > 0) then
+                    if (count = pkt_size and pkt_size > 0) then
                         total_count_retx := data_in;
                         total_count_retx := total_count_retx + count_retx;
-                        buf(to_integer(last)) <= std_logic_vector(total_count_retx);
-                    else
-                        buf(to_integer(last)) <= std_logic_vector(data_in); -- armazena o flit
                     end if;
 
                     if (count = 1) then
                     pkt_size <= data_in;
                     end if;
 
-                    --incrementa o last
-                    if last = TAM_BUFFER - 1 then
-                        last <= (others=>'0');
-                    else
-                        last <= last + 1;
-                    end if;
-
                     count := count + 1;
 
                     -- detectado erro e nao corrigido. Posso tentar mais uma vez pedindo retransmissao...
                 else
-                    retransmission_o <= '1';
                     count_retx := count_retx + 1;
                     last_count_rx <= std_logic_vector(to_unsigned(count,TAM_FLIT));
                 end if;
@@ -207,6 +217,7 @@ begin
                     pkt_received := '0';
                 end if;
             end if;
+            number_of_retransmissions <= count_retx;
         end if;
 end process;
    -------------------------------------------------------------------------------------------
@@ -215,25 +226,6 @@ end process;
 
    -- disponibiliza o dado para transmissao. Se nao estiver criando um pacote de controle, envia normalmente o dado do buffer, caso contrario envia dado criado (c_buffer)
    data <= bufferHead when c_createmessage ='0' else c_Buffer;
-
-   has_data <= first /= last;
-   is_last_flit <= '1' when (first = TAM_BUFFER - 1 and last = 0) or (first + 1 = last) else '0';
-   bufferHead <= buf(to_integer(first));
-
-    process(reset, clock)
-    begin
-        if reset = '1' then
-            first <= (others=>'0');
-        elsif rising_edge(clock) then
-            if pull = '1' and has_data then
-                if first = TAM_BUFFER - 1 then
-                   first <= (others=>'0');
-                else
-                   first <= first + 1;
-                end if;
-            end if;
-        end if;
-    end process;
 
    -- Quando sinal reset eh ativado a maquina de estados avanca para o estado S_INIT.
    -- No estado S_INIT os sinais counter_flit (contador de flits do corpo do pacote), h (que
