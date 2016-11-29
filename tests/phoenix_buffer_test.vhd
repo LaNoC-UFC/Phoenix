@@ -9,7 +9,7 @@ end;
 
 architecture happy_path of phoenix_buffer_test is
 
-    constant PACKAGE_SIZE: integer := TAM_BUFFER-1;
+    constant PACKAGE_SIZE: integer := TAM_BUFFER;
     constant PAYLOAD_SIZE: integer := PACKAGE_SIZE-2;
     signal clock:          std_logic := '0';
     signal reset:          std_logic;
@@ -71,7 +71,7 @@ begin
         wait_clock_tick;
         -- fill it completely
         rx <= '1';
-        for i in 1 to TAM_BUFFER-1 loop
+        for i in 1 to TAM_BUFFER loop
             wait_clock_tick;
             assert credit_o = '1' report "Buffer should have space left" severity failure;
             assert data_av = '0' report "Buffer shouldn't have data" severity failure;
@@ -91,7 +91,7 @@ begin
         wait_clock_tick;
         -- empty it completely
         data_ack <= '1';
-        for i in 1 to TAM_BUFFER-1 loop
+        for i in 1 to TAM_BUFFER loop
             wait_clock_tick;
             assert data_av = '1' report "Buffer should have data" severity failure;
             assert sender = '1' report "Buffer should been sending" severity failure;
@@ -109,7 +109,7 @@ end happy_path;
 
 architecture data_input_test of phoenix_buffer_test is
 
-    constant PACKAGE_SIZE: integer := TAM_BUFFER-1;
+    constant PACKAGE_SIZE: integer := TAM_BUFFER;
     constant PAYLOAD_SIZE: integer := PACKAGE_SIZE-2;
     signal clock:          std_logic := '0';
     signal reset:          std_logic;
@@ -233,7 +233,7 @@ end data_input_test;
 
 architecture data_output_test of phoenix_buffer_test is
 
-    constant PACKAGE_SIZE: integer := TAM_BUFFER-1;
+    constant PACKAGE_SIZE: integer := TAM_BUFFER;
     constant PAYLOAD_SIZE: integer := PACKAGE_SIZE-2;
     signal clock:          std_logic := '0';
     signal reset:          std_logic;
@@ -344,7 +344,7 @@ end data_output_test;
 -- reproduces bug (Issue #60)
 architecture empty_buffer_test of phoenix_buffer_test is
 
-    constant PACKAGE_SIZE: integer := TAM_BUFFER-1;
+    constant PACKAGE_SIZE: integer := TAM_BUFFER;
     constant PAYLOAD_SIZE: integer := PACKAGE_SIZE-2;
     signal clock:          std_logic := '0';
     signal reset:          std_logic;
@@ -420,7 +420,7 @@ begin
         wait until data_av'stable;
         assert data_av = '0' report "There should be no data available" severity failure;
         -- accept others outgoing flits (but there's no more)
-        for i in 1 to TAM_BUFFER-1 loop
+        for i in 1 to TAM_BUFFER loop
             wait_clock_tick;
             assert data_av = '0' report "There should be no data available" severity failure;
         end loop;
@@ -557,7 +557,7 @@ end test_link_ctrl_pkg_test;
 architecture no_ctrl_pkg_code_test of phoenix_buffer_test is
 
     constant ANY_NUMBER_OF_CYCLES: integer := 10;
-    constant PACKAGE_SIZE: integer := TAM_BUFFER-1-1;
+    constant PACKAGE_SIZE: integer := TAM_BUFFER-2;
     constant PAYLOAD_SIZE: integer := PACKAGE_SIZE-2;
     signal clock:          std_logic := '0';
     signal reset:          std_logic;

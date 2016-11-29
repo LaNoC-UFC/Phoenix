@@ -78,7 +78,7 @@ begin
 
     circularFifoBuffer : entity work.fifo_buffer
         generic map(
-            BUFFER_DEPTH => TAM_BUFFER - 1,
+            BUFFER_DEPTH => TAM_BUFFER,
             BUFFER_WIDTH => regflit'length
         )
         port map(
@@ -107,7 +107,7 @@ begin
     -- sinal indica se tem falha no link destino
     c_error <= '1' when unsigned(c_direcao and old_tabelafalhas) /= 0 else '0';
 
-    buffer_is_not_full <= '1' when counter < TAM_BUFFER-1 else '0';
+    buffer_is_not_full <= '1' when counter < TAM_BUFFER else '0';
     credit_o <= buffer_is_not_full;
     retransmission_o <= '1' when statusHamming = ED else '0';
 
