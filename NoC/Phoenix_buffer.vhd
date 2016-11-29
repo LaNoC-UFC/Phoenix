@@ -269,7 +269,7 @@ begin
                 when S_PAYLOAD =>
                     if (( data_ack = '1' or c_error = '1') and retransmission_in = '1') then
                         -- se nao eh o ultimo flit do pacote E se foi confirmado que foi recebido com sucesso o dado transmitido OU o link destino esta com falha. Comentario antigo: confirmacao do envio de um dado que nao eh o tail
-                    elsif counter_flit /= x"1" and ( data_ack = '1' or c_error = '1') then
+                    elsif has_data and counter_flit /= x"1" and ( data_ack = '1' or c_error = '1') then
                         -- se counter_flit eh zero indica que terei que receber o size do payload
                         if counter_flit = x"0" then
                             counter_flit <=  unsigned(head);
@@ -279,7 +279,7 @@ begin
                         pull <= '1';
                         data_av <= not is_last_flit;
                         -- se eh o ultimo flit do pacote E se foi confirmado que foi recebido com sucesso o dado transmitido OU o link destino esta com falha. Comentario antigo: confirmacao do envio do tail
-                    elsif counter_flit = x"1" and (data_ack = '1' or c_error = '1') then
+                    elsif has_data and counter_flit = x"1" and (data_ack = '1' or c_error = '1') then
                         pull <= '1';
                         data_av <= '0'; -- como o ultimo flit sera enviado, nao tem mais dados disponiveis
                         sender <= '0'; -- como o ultimo flit sera enviado, nao preciso sinalizar que estou enviando dados
