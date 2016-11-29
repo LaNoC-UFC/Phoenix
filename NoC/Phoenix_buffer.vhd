@@ -306,7 +306,7 @@ begin
                         pull <= '1';
                     end if;
                     -- indice igual a zero, ou seja, primeiro flit do payload do pacote (onde possui o codigo do pacote de controle)
-                    if (indexFlitCtrl = 0 and retransmission_o='0') then
+                    if ((has_data or c_createmessage='1') and indexFlitCtrl = 0 and retransmission_o='0') then
                         codigoControl <= unsigned(head); -- leitura do tipo do pacote de controle (leitura do Code)
                         indexFlitCtrl := indexFlitCtrl + 1; -- incrementa o indice do payload que sera lido
                         counter_flit <= counter_flit - 1; -- decrementa o numero de flits que faltam a ser lidos/processados do pacote
