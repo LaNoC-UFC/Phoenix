@@ -1,7 +1,7 @@
 library IEEE;
 use IEEE.std_logic_1164.all;
 use STD.textio.all;
-use work.PhoenixPackage.all;
+use work.NoCPackage.all;
 use work.HammingPack16.all;
 
 entity fault_injector_test is

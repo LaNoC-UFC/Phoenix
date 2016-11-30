@@ -166,7 +166,7 @@ begin
         port map(
             clock => clock,
             reset => reset,
-            data_in => unsigned(dataDecoded(i)),
+            data_in => dataDecoded(i),
             rx => rx(i),
             h => h(i), -- requisicao de chaveamento
             c_buffCtrlFalha => c_BuffTabelaFalhas(i), -- tabela de falhas lida do pacote de controle que solicitou escrever/atualizar a tabela
@@ -200,7 +200,7 @@ begin
     port map(
         clock => clock,
         reset => reset,
-        data_in => unsigned(dataDecoded(LOCAL)),
+        data_in => dataDecoded(LOCAL),
         rx => rx(LOCAL),
         h => h(LOCAL),
         c_ctrl=> c_ctrl, -- (exclusivo do buffer local) indica se foi lido ou criado de um pacote de controle pelo buffer
