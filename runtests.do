@@ -14,3 +14,4 @@ vcom -work work -93 -explicit NoC/FaultInjector.vhd
 vcom -work work -93 -explicit tests/fault_injector_test.vhd
 
 vsim work.fault_injector_test
+run 1 ms

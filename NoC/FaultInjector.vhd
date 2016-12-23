@@ -9,7 +9,9 @@ use work.NoCPackage.all;
 
 entity FaultInjector is
 generic(
-    address: regflit
+    address: regflit;
+    SEED_VAL_1: positive := 1;
+    SEED_VAL_2: positive := 1
 );
 port(
     clock:          in std_logic;
@@ -44,7 +46,7 @@ begin
         begin
             data_out(i)(j) <=   '0' when (FaultNPorts(i)(SA0)(j)='1') else -- stuck-at 0
                                 '1' when (FaultNPorts(i)(SA1)(j)='1') else -- stuck-at 1
-                                not data_in(i)(j) when (FaultNPorts(i)(BF) (j)='1') -- bitflip
+                                not data_in(i)(j) when (FaultNPorts(i)(BF)(j)='1') -- bitflip
                                 else data_in(i)(j); -- normal
         end generate bit_fault;
     end generate data_fault;
@@ -63,11 +65,10 @@ begin
         variable fault_port: integer;
 
         type real_array is array (0 to NPORT-1) of real;
-        variable fault_counter_Nports: real_array := (others=>0.0);
         variable fault_rate_Nports: real_array := (others=>0.0);
-        variable fault_injected: regNPort;
 
-        variable seed1, seed2: positive;
+        variable seed1: positive := SEED_VAL_1;
+        variable seed2: positive := SEED_VAL_2;
         variable rand: real;
     begin
         file_open(fstatus, file_pointer,"fault_"&to_hstring(address)&".txt",READ_MODE);
@@ -140,27 +141,18 @@ begin
             wait until clock='1';
             wait for 1 ns;
 
-            fault_injected := (others=>'0');
-            uniform(seed1, seed2, rand);
 
             while true loop
 
                 for i in 0 to NPORT-1 loop
                     if (tx(i)='1' and credit(i)='1') then
-                        fault_counter_Nports(i) := fault_counter_Nports(i) + fault_rate_Nports(i);
-                        if (fault_counter_Nports(i) >= rand and fault_injected(i) = '0') then
+                        uniform(seed1, seed2, rand);
+                        if (fault_rate_Nports(i) >= rand) then
                             FaultNPorts(i)(BF)(0) <= '1';
                             FaultNPorts(i)(BF)(1) <= '1';
-                            fault_injected(i) := '1';
                         else
                             FaultNPorts(i)(BF)(0) <= '0';
                             FaultNPorts(i)(BF)(1) <= '0';
-                        end if;
-
-                        if (fault_counter_Nports(i) >= 1.0) then
-                            fault_counter_Nports(i) := fault_counter_Nports(i) - 1.0;
-                            fault_injected(i) := '0';
-                            uniform(seed1, seed2, rand);
                         end if;
                     else
                         FaultNPorts(i)(BF)(0) <= '0';
