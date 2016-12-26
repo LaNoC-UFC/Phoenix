@@ -49,7 +49,8 @@ architecture RoutingTable of SwitchControl is
     signal source:  arrayNport_reg3 := (others=> (others=> '0'));
     signal sender_ant: regNport := (others=> '0');
     signal dir: std_logic_vector(NPORT-1 downto 0):= (others=> '0');
-
+    signal requests: regNport := (others=> '0');
+    
 -- sinais de controle da tabela
     signal find: RouterControl;
     signal ceTable: std_logic := '0';
@@ -194,10 +195,10 @@ begin
         );
 
     OutputArbiter : entity work.outputArbiter
+    generic map(size => requests'length)
     port map(
-         freePort                => auxfree,
+         requests                => requests,
          enable                  => '1',
-         enablePort              => dir,
          isOutputSelected        => isOutputSelected,
          selectedOutput          => selectedOutput
      );
@@ -300,5 +301,6 @@ begin
 
     mux_in <= source;
     free <= auxfree;
+    requests <= auxfree AND dir;
 
 end RoutingTable;
