@@ -41,14 +41,16 @@ architecture RoutingTable of SwitchControl is
     signal sel,prox: integer range 0 to (NPORT-1) := 0;
     signal incoming: reg3 := (others=> '0');
     signal header : regflit := (others=> '0');
-
+    signal ready, enable : std_logic;
+    
 -- sinais do controle
     signal indice_dir: integer range 0 to (NPORT-1) := 0;
     signal auxfree: regNport := (others=> '0');
     signal source:  arrayNport_reg3 := (others=> (others=> '0'));
     signal sender_ant: regNport := (others=> '0');
     signal dir: std_logic_vector(NPORT-1 downto 0):= (others=> '0');
-
+    signal requests: regNport := (others=> '0');
+    
 -- sinais de controle da tabela
     signal find: RouterControl;
     signal ceTable: std_logic := '0';
@@ -72,43 +74,14 @@ begin
     incoming <= CONV_VECTOR(sel);
     header <= data(to_integer(unsigned(incoming)));
 
-    -- escolhe uma das portas que solicitou chaveamento
-    process(sel, h)
-    begin
-        case sel is
-            when LOCAL=>
-                if h(EAST)='1' then prox<=EAST;
-                elsif h(WEST)='1' then prox<=WEST;
-                elsif h(NORTH)='1' then prox<=NORTH;
-                elsif h(SOUTH)='1' then prox<=SOUTH;
-                else prox<=LOCAL; end if;
-            when EAST=>
-                if h(WEST)='1' then prox<=WEST;
-                elsif h(NORTH)='1' then prox<=NORTH;
-                elsif h(SOUTH)='1' then prox<=SOUTH;
-                elsif h(LOCAL)='1' then prox<=LOCAL;
-                else prox<=EAST; end if;
-            when WEST=>
-                if h(NORTH)='1' then prox<=NORTH;
-                elsif h(SOUTH)='1' then prox<=SOUTH;
-                elsif h(LOCAL)='1' then prox<=LOCAL;
-                elsif h(EAST)='1' then prox<=EAST;
-                else prox<=WEST; end if;
-            when NORTH=>
-                if h(SOUTH)='1' then prox<=SOUTH;
-                elsif h(LOCAL)='1' then prox<=LOCAL;
-                elsif h(EAST)='1' then prox<=EAST;
-                elsif h(WEST)='1' then prox<=WEST;
-                else prox<=NORTH; end if;
-            when SOUTH=>
-                if h(LOCAL)='1' then prox<=LOCAL;
-                elsif h(EAST)='1' then prox<=EAST;
-                elsif h(WEST)='1' then prox<=WEST;
-                elsif h(NORTH)='1' then prox<=NORTH;
-                else prox<=SOUTH; end if;
-        end case;
-    end process;
-
+    RoundRobinArbiter : entity work.arbiter(RoundRobinArbiter)
+    generic map(size => requests'length)
+    port map(
+        requests => h,
+        enable => enable,
+        selectedOutput => prox,
+        isOutputSelected => ready
+    );
     ------------------------------------------------------------
     --gravacao da tabela de falhas
     ------------------------------------------------------------
@@ -221,11 +194,11 @@ begin
             find => find -- indica se terminou de achar uma porta de saida para o pacote conforme a tabela de roteamento
         );
 
-    OutputArbiter : entity work.outputArbiter
+    FixedPriorityArbiter : entity work.arbiter(FixedPriorityArbiter)
+    generic map(size => requests'length)
     port map(
-         freePort                => auxfree,
+         requests                => requests,
          enable                  => '1',
-         enablePort              => dir,
          isOutputSelected        => isOutputSelected,
          selectedOutput          => selectedOutput
      );
@@ -234,12 +207,12 @@ begin
     begin
         if reset='1' then
             ES<=S0;
-        elsif clock'event and clock='0' then
+        elsif clock'event and clock='1' then
             ES<=PES;
         end if;
     end process;
 
-    process(ES, ask, auxfree, find, selectedOutput, isOutputSelected)
+    process(ES, ask, auxfree, find, isOutputSelected, header)
     begin
         case ES is
             when S0 => PES <= S1;
@@ -252,11 +225,9 @@ begin
             when S2 => PES <= S3;
             when S3 =>
                 if address = header and auxfree(LOCAL)='1' then
-                    indice_dir <= LOCAL;
                     PES <= S4;
                 elsif(find = validRegion)then
                     if (isOutputSelected = '1') then
-                        indice_dir <= selectedOutput;
                         PES <= S4;
                     else
                         PES <= S1;
@@ -291,19 +262,23 @@ begin
 
                 -- Chegou um header
                 when S1=>
+                    enable <= ask;
                     ceTable <= '0';
                     ack_h <= (others => '0');
 
                 -- Seleciona quem tera direito a requisitar roteamento
                 when S2=>
                     sel <= prox;
-
+                    enable <= not ready;
                 -- Aguarda resposta da Tabela
                 when S3 =>
-                    if address /= header then
+                    if (address = header and auxfree(LOCAL) = '1') then
+                        indice_dir <= LOCAL;
+                    elsif(find = validRegion and isOutputSelected = '1') then
+                        indice_dir <= selectedOutput;
+                    elsif (address /= header) then
                         ceTable <= '1';
                     end if;
-
                 when S4 =>
                     source(to_integer(unsigned(incoming))) <= CONV_VECTOR(indice_dir);
                     mux_out(indice_dir) <= incoming;
@@ -327,5 +302,6 @@ begin
 
     mux_in <= source;
     free <= auxfree;
+    requests <= auxfree AND dir;
 
 end RoutingTable;
