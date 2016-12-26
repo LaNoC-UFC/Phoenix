@@ -74,14 +74,14 @@ begin
     incoming <= CONV_VECTOR(sel);
     header <= data(to_integer(unsigned(incoming)));
 
-    InputArbiter : entity work.inputArbiter
+    RoundRobinArbiter : entity work.arbiter(RoundRobinArbiter)
+    generic map(size => requests'length)
     port map(
         requests => h,
         enable => enable,
-        nextPort => prox,
-        ready => ready
+        selectedOutput => prox,
+        isOutputSelected => ready
     );
-
     ------------------------------------------------------------
     --gravacao da tabela de falhas
     ------------------------------------------------------------
@@ -194,7 +194,7 @@ begin
             find => find -- indica se terminou de achar uma porta de saida para o pacote conforme a tabela de roteamento
         );
 
-    OutputArbiter : entity work.outputArbiter
+    FixedPriorityArbiter : entity work.arbiter(FixedPriorityArbiter)
     generic map(size => requests'length)
     port map(
          requests                => requests,
@@ -212,7 +212,7 @@ begin
         end if;
     end process;
 
-    process(ES, ask, auxfree, find, selectedOutput, isOutputSelected)
+    process(ES, ask, auxfree, find, isOutputSelected, header)
     begin
         case ES is
             when S0 => PES <= S1;
@@ -225,11 +225,9 @@ begin
             when S2 => PES <= S3;
             when S3 =>
                 if address = header and auxfree(LOCAL)='1' then
-                    indice_dir <= LOCAL;
                     PES <= S4;
                 elsif(find = validRegion)then
                     if (isOutputSelected = '1') then
-                        indice_dir <= selectedOutput;
                         PES <= S4;
                     else
                         PES <= S1;
@@ -274,10 +272,13 @@ begin
                     enable <= not ready;
                 -- Aguarda resposta da Tabela
                 when S3 =>
-                    if address /= header then
+                    if (address = header and auxfree(LOCAL) = '1') then
+                        indice_dir <= LOCAL;
+                    elsif(find = validRegion and isOutputSelected = '1') then
+                        indice_dir <= selectedOutput;
+                    elsif (address /= header) then
                         ceTable <= '1';
                     end if;
-
                 when S4 =>
                     source(to_integer(unsigned(incoming))) <= CONV_VECTOR(indice_dir);
                     mux_out(indice_dir) <= incoming;
