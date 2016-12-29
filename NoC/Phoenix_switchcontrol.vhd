@@ -212,7 +212,7 @@ begin
         end if;
     end process;
 
-    process(ES, ask, auxfree, find, isOutputSelected, header)
+    process(ES, ask, find, isOutputSelected)
     begin
         case ES is
             when S0 => PES <= S1;
@@ -224,9 +224,7 @@ begin
                 end if;
             when S2 => PES <= S3;
             when S3 =>
-                if address = header and auxfree(LOCAL)='1' then
-                    PES <= S4;
-                elsif(find = validRegion)then
+                if(find = validRegion)then
                     if (isOutputSelected = '1') then
                         PES <= S4;
                     else
@@ -272,11 +270,9 @@ begin
                     enable <= not ready;
                 -- Aguarda resposta da Tabela
                 when S3 =>
-                    if (address = header and auxfree(LOCAL) = '1') then
-                        indice_dir <= LOCAL;
-                    elsif(find = validRegion and isOutputSelected = '1') then
+                    if(find = validRegion and isOutputSelected = '1') then
                         indice_dir <= selectedOutput;
-                    elsif (address /= header) then
+                    else
                         ceTable <= '1';
                     end if;
                 when S4 =>

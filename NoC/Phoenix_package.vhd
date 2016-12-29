@@ -123,6 +123,8 @@ package NoCPackage is
     function PORT_NAME(value: integer) return string;
     function ADDRESS_FROM_INDEX(index : integer) return regflit;
     function OR_REDUCTION(arrayN : std_logic_vector ) return boolean;
+    function X_COORDINATE(address: regflit) return natural;
+    function Y_COORDINATE(address: regflit) return natural;
 
 end NoCPackage;
 
@@ -329,4 +331,14 @@ package body NoCPackage is
     begin
         return unsigned(arrayN) /= 0;
     end OR_REDUCTION;
+
+    function X_COORDINATE(address: regflit) return natural is
+    begin
+        return TO_INTEGER(unsigned(address(TAM_FLIT-1 downto METADEFLIT)));
+    end X_COORDINATE;
+
+    function Y_COORDINATE(address: regflit) return natural is
+    begin
+        return TO_INTEGER(unsigned(address(METADEFLIT-1 downto 0)));
+    end Y_COORDINATE;
 end NoCPackage;
